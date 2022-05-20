@@ -71,10 +71,14 @@ class Indexer(object):
   @staticmethod
   def indexing_func(indexer):
     while True:
+      if indexer.shutdown_.value == 1:
+        logging.info('1.quit indexing function process')
+        break
+
       task = indexer.data_queue_.get()
 
       if task is None or indexer.shutdown_.value == 1:
-        logging.info('quit indexing function process')
+        logging.info('2.quit indexing function process')
         break
 
       try:
@@ -93,7 +97,7 @@ class Indexer(object):
 
         for entry in entries:
           if indexer.shutdown_.value == 1:
-            logging.info('quit indexing function process')
+            logging.info('3.quit indexing function process')
             break
 
           logging.debug(f'indexing document:{entry.resolve().as_posix()}')
