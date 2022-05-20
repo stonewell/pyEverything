@@ -3,12 +3,12 @@ import datetime
 from .. import IndexerImpl
 from binaryornot.check import is_binary
 
-from whoosh.fields import Schema, TEXT, ID, DATETIME
+from whoosh.fields import Schema, TEXT, ID, DATETIME, NGRAMWORDS
 from whoosh import index
 from whoosh.filedb.filestore import FileStorage
 
 FILE_INDEXING_SCHEMA = Schema(path=ID(stored=True, unique=True),
-                              content=TEXT,
+                              content=NGRAMWORDS,
                               create_time=DATETIME(stored=True),
                               modified_time=DATETIME(stored=True))
 
@@ -49,7 +49,9 @@ class WhooshIndexerImpl(IndexerImpl):
     if self.writer_ is not None:
       return
 
-    self.writer_ = self.index_.writer()
+    self.writer_ = self.index_.writer(proc=4,
+                                      limitmb=512,
+                                      multisegment=True)
 
   def end_index(self):
     if self.writer_ is None:

@@ -115,6 +115,6 @@ if __name__ == '__main__':
   ix.index('/', True)
 
   import time
-  time.sleep(5)
+  time.sleep(10)
 
   ix.stop()
