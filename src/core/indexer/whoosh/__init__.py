@@ -1,11 +1,14 @@
 import logging
 import datetime
-from .. import IndexerImpl
 from binaryornot.check import is_binary
 
-from whoosh.fields import Schema, TEXT, ID, DATETIME, NGRAMWORDS
+from whoosh.fields import Schema, ID, DATETIME, NGRAMWORDS
 from whoosh import index
 from whoosh.filedb.filestore import FileStorage
+from whoosh.qparser import QueryParser
+
+from .. import IndexerImpl
+from .query_result import QueryResult
 
 FILE_INDEXING_SCHEMA = Schema(path=ID(stored=True, unique=True),
                               content=NGRAMWORDS,
@@ -40,18 +43,17 @@ class WhooshIndexerImpl(IndexerImpl):
     if not is_binary(path.resolve().as_posix()):
       content = path.read_text(encoding='utf-8', errors='ignore')
 
-    self.writer_.update_document(path=path.resolve().as_posix(),
-                              create_time=datetime.datetime.fromtimestamp(path.stat().st_ctime),
-                              modified_time=datetime.datetime.fromtimestamp(path.stat().st_mtime),
-                              content=content)
+    self.writer_.update_document(
+        path=path.resolve().as_posix(),
+        create_time=datetime.datetime.fromtimestamp(path.stat().st_ctime),
+        modified_time=datetime.datetime.fromtimestamp(path.stat().st_mtime),
+        content=content)
 
   def begin_index(self):
     if self.writer_ is not None:
       return
 
-    self.writer_ = self.index_.writer(proc=4,
-                                      limitmb=512,
-                                      multisegment=True)
+    self.writer_ = self.index_.writer(proc=4, limitmb=512, multisegment=True)
 
   def end_index(self):
     if self.writer_ is None:
@@ -59,3 +61,19 @@ class WhooshIndexerImpl(IndexerImpl):
 
     self.writer_.commit(optimize=True)
     self.writer_ = None
+
+  def query(self, path, content):
+    if path is None and content is None:
+      raise ValueError('must provide either path or content to search')
+
+    qp = QueryParser("content", schema=self.index_.schema)
+
+    query_str = ''
+
+    if content is not None:
+      query_str += f' {content}'
+
+    if path is not None:
+      query_str += f' path:${path}*'
+
+    return QueryResult(self.index_.searcher(), qp.parse(query_str))

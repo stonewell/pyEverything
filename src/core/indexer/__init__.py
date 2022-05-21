@@ -15,6 +15,9 @@ class IndexerImpl(object):
   def end_index(self):
     raise NotImplementedError()
 
+  def query(self, path, content):
+    raise NotImplementedError()
+
 
 def get_indexer_impl(data_path):
   from .whoosh import WhooshIndexerImpl

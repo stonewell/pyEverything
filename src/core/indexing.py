@@ -68,6 +68,9 @@ class Indexer(object):
 
     self.data_queue_.put_nowait((path, full_indexing))
 
+  def query(self, path, content):
+    return self.indexer_impl_.query(path, content)
+
   @staticmethod
   def indexing_func(indexer):
     while True:
@@ -90,7 +93,9 @@ class Indexer(object):
         elif path.is_file() and path.exists():
           entries = [path]
         else:
-          logging.warning(f'get a index request with invalid path:{path.resolve().as_posix()}')
+          logging.warning(
+              f'get a index request with invalid path:{path.resolve().as_posix()}'
+          )
           continue
 
         indexer.indexer_impl_.begin_index()
