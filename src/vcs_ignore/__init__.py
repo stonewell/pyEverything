@@ -30,23 +30,27 @@ class VCSIgnore(object):
     if len(pattern) == 0:
       return
 
+    white_list = False
     if pattern.startswith('!'):
-      self.patterns_.append((pattern[1:], True))
-      self.pattern_index_ += 1
-      return
+      pattern = pattern[1:]
+      white_list = True
 
-    for c in '!*?[]\\#':
-      pattern = pattern.replace('\\' + c, '[' + c + ']')
-
+    extra_pattern = None
     if pattern.startswith('/'):
       pattern = pattern[1:]
     elif pattern.find('/') >= 0:
+      extra_pattern = pattern
       pattern = '**/' + pattern
 
     if pattern.endswith('/'):
       pattern = pattern + '**'
+      if extra_pattern:
+        extra_pattern += '**'
 
-    self.patterns_.append((pattern, False))
+    if extra_pattern is not None:
+      self.patterns_.append((extra_pattern, white_list))
+
+    self.patterns_.append((pattern, white_list))
 
   def load_ignore_patterns(self, path):
     if isinstance(path, str):
@@ -56,14 +60,13 @@ class VCSIgnore(object):
       return
 
     with path.open(encoding='utf-8') as f:
-      line = f.readline()
-
-      while line is not None:
+      for line in f:
         self.add_ignore_pattern(line)
 
-        line = f.readline()
+  def load_ignore_patterns_in_path(self, path=None):
+    if path is None:
+      path = self.path_
 
-  def load_ignore_patterns_in_path(self, path):
     if isinstance(path, str):
       path = pathlib.Path(path)
 
