@@ -3,3 +3,4 @@ whoosh
 filetype
 binaryornot
 appdirs
+globre
