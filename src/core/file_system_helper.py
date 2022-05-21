@@ -2,7 +2,11 @@ import pathlib
 from collections import deque
 from vcs_ignore import VCSIgnore
 
-BUILTIN_IGNORE = ['.git', '.svn', 'CVS', '.hg', '.gitignore']
+BUILTIN_IGNORE = set(['.git', '.svn', 'CVS', '.hg', '.gitignore'])
+
+
+def add_glboal_ignore(path_name):
+  BUILTIN_IGNORE.add(path_name)
 
 
 def walk_directory(path):
