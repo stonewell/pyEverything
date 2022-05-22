@@ -12,7 +12,10 @@ from .file_system_helper import walk_directory
 from .indexer import get_indexer_impl
 
 if sys.platform != 'win32':
-  mp.set_start_method('forkserver')
+  try:
+    mp.set_start_method('forkserver')
+  except:
+    pass
 
 
 class Indexer(object):
