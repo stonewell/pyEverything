@@ -5,7 +5,7 @@ from binaryornot.check import is_binary
 from whoosh.fields import Schema, ID, DATETIME, NGRAMWORDS
 from whoosh import index
 from whoosh.filedb.filestore import FileStorage
-from whoosh.qparser import QueryParser
+from whoosh.qparser import MultifieldParser
 
 from .. import IndexerImpl
 from .query_result import QueryResult
@@ -66,14 +66,33 @@ class WhooshIndexerImpl(IndexerImpl):
     if path is None and content is None:
       raise ValueError('must provide either path or content to search')
 
-    qp = QueryParser("content", schema=self.index_.schema)
+    qp = MultifieldParser(['path', 'content'], schema=self.index_.schema)
 
     query_str = ''
 
     if content is not None:
-      query_str += f' {content}'
+      query_str += f' content:{content}'
 
     if path is not None:
-      query_str += f' path:${path}*'
+      query_str += f' path:*{path}*'
 
-    return QueryResult(self.index_.searcher(), qp.parse(query_str))
+    query = qp.parse(query_str)
+
+    logging.debug(f'query str:{query_str}, query_parsed:{query}')
+
+    return QueryResult(self.index_.searcher(), query)
+
+  def delete_path(self, path):
+    if path is None:
+      raise ValueError('must provide path to delete')
+
+    qp = MultifieldParser(['path'], schema=self.index_.schema)
+
+    query_str = f'path:*{path}*'
+
+    query = qp.parse(query_str)
+
+    logging.debug(f'query str:{query_str}, query_parsed:{query}')
+
+    with self.index_.searcher() as sr:
+      self.writer_.delete_by_query(query, sr)

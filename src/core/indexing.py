@@ -69,7 +69,10 @@ class Indexer(object):
     if isinstance(path, str):
       path = pathlib.Path(path)
 
-    self.data_queue_.put_nowait((path, full_indexing))
+    self.data_queue_.put_nowait((path, full_indexing, False))
+
+  def remove(self, path):
+    self.data_queue_.put_nowait((path, False, True))
 
   def query(self, path, content):
     return self.indexer_impl_.query(path, content)
@@ -88,8 +91,21 @@ class Indexer(object):
         break
 
       try:
-        path, full_indexing = task
-        path.resolve()
+        path, full_indexing, remove = task
+
+        if remove:
+          logging.debug(f'remove index for: {path}')
+
+          indexer.indexer_impl_.begin_index()
+          try:
+            indexer.indexer_impl_.delete_path(path)
+          finally:
+            indexer.indexer_impl_.end_index()
+            logging.debug(f'done remove index for: {path}')
+
+          continue
+
+        path = path.resolve()
 
         if path.is_dir() and path.exists():
           entries = walk_directory(path)
@@ -97,9 +113,11 @@ class Indexer(object):
           entries = [path]
         else:
           logging.warning(
-              f'get a index request with invalid path:{path.resolve().as_posix()}'
+              f'get a index request with invalid path:{path.as_posix()}'
           )
           continue
+
+        logging.debug(f'begin index for: {path.as_posix()}')
 
         indexer.indexer_impl_.begin_index()
 
@@ -108,21 +126,18 @@ class Indexer(object):
             logging.info('3.quit indexing function process')
             break
 
-          logging.debug(f'indexing document:{entry.resolve().as_posix()}')
+          logging.debug(f'indexing document:{entry.as_posix()}')
           indexer.indexer_impl_.add_document(entry, full_indexing)
       except:
         logging.exception(f'failed index {task}')
       finally:
         indexer.indexer_impl_.end_index()
-
+        logging.debug(f'done index for: {path.as_posix() if not isinstance(path, str) else path}')
 
 if __name__ == '__main__':
   ix = Indexer()
-  ix.start()
 
-  ix.index('/', True)
+  r = ix.query('core', 'editor')
 
-  import time
-  time.sleep(120)
-
-  ix.stop()
+  for item in r.query():
+    print(item['path'])
