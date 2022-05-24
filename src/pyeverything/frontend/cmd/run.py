@@ -2,7 +2,7 @@ import argparse
 import logging
 import pathlib
 
-from core.indexing import Indexer
+from pyeverything.core.indexing import Indexer
 
 
 def parse_arguments():
@@ -62,7 +62,9 @@ def main():
     logging.getLogger('').setLevel(logging.DEBUG)
 
   logging.debug(args.op)
-  logging.debug(f'index store location:{args.location.resolve().as_posix()}')
+
+  if args.location is not None:
+    logging.debug(f'index store location:{args.location.resolve().as_posix()}')
 
   indexer = Indexer(args.location, False)
 
@@ -75,10 +77,16 @@ def main():
 def do_index(indexer, args):
   if args.file is not None:
     for line in args.file:
-      indexer.index(line)
+      if args.remove:
+        indexer.remove(line)
+      else:
+        indexer.index(line)
 
   for path in args.args:
-    indexer.index(path)
+    if args.remove:
+      indexer.remove(path)
+    else:
+      indexer.index(path)
 
 
 def do_query(indexer, args):

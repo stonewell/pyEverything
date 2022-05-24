@@ -1,6 +1,6 @@
 import pathlib
 from collections import deque
-from vcs_ignore import VCSIgnore
+from pyeverything.vcs_ignore import VCSIgnore
 
 BUILTIN_IGNORE = set(['.git', '.svn', 'CVS', '.hg', '.gitignore'])
 

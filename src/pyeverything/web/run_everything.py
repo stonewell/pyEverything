@@ -31,7 +31,8 @@ def main():
   if args.debug > 0:
     logging.getLogger('').setLevel(logging.DEBUG)
 
-  logging.debug(f'index store location:{args.location.resolve().as_posix()}')
+  if args.location is not None:
+    logging.debug(f'index store location:{args.location.resolve().as_posix()}')
 
   start_indexer(args.location)
 

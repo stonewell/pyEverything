@@ -1,4 +1,4 @@
-from core.indexing import Indexer
+from pyeverything.core.indexing import Indexer
 
 __g_indexer = None
 
