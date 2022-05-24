@@ -1,7 +1,5 @@
 import logging
 
-logging.getLogger('').setLevel(logging.DEBUG)
-
 import sys
 import pathlib
 import multiprocessing as mp
@@ -20,7 +18,7 @@ if sys.platform != 'win32':
 
 class Indexer(object):
 
-  def __init__(self, data_path=None):
+  def __init__(self, data_path=None, use_service=True):
     super().__init__()
 
     self.appdirs_ = AppDirs('pyeverything', 'angsto-tech')
@@ -28,6 +26,7 @@ class Indexer(object):
     self.data_queue_ = None
     self.indexing_process_ = None
     self.shutdown_ = Value('d', 0)
+    self.use_service_ = use_service
 
     self.__initialize()
 
@@ -37,17 +36,22 @@ class Indexer(object):
     elif self.data_path_ is None:
       self.data_path_ = self.__get_default_datapath()
 
+    self.data_path_ = self.data_path_.expanduser().resolve()
+
     self.data_path_.mkdir(parents=True, exist_ok=True)
     logging.debug(
         f'indexing data stored in {self.data_path_.resolve().as_posix()}')
 
     self.indexer_impl_ = get_indexer_impl(self.data_path_)
 
+    if not self.use_service_:
+      self.data_queue_ = Queue()
+
   def __get_default_datapath(self):
     return pathlib.Path(self.appdirs_.user_config_dir) / 'cache'
 
   def start(self):
-    if self.indexing_process_ is not None:
+    if self.indexing_process_ is not None or not self.use_service_:
       return
 
     self.data_queue_ = Queue()
@@ -58,7 +62,7 @@ class Indexer(object):
     self.indexing_process_.start()
 
   def stop(self):
-    if self.indexing_process_ is None:
+    if self.indexing_process_ is None or not self.use_service_:
       return
 
     self.shutdown_.value = 1
@@ -71,8 +75,16 @@ class Indexer(object):
 
     self.data_queue_.put_nowait((path, full_indexing, False))
 
+    if not self.use_service_:
+      self.data_queue_.put_nowait(None)
+      Indexer.indexing_func(self)
+
   def remove(self, path):
     self.data_queue_.put_nowait((path, False, True))
+
+    if not self.use_service_:
+      self.data_queue_.put_nowait(None)
+      Indexer.indexing_func(self)
 
   def query(self, path, content):
     return self.indexer_impl_.query(path, content)

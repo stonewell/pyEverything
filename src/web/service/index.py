@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, abort
 
 from .indexer import indexer
 
@@ -12,7 +12,7 @@ def add_index():
   for p in data:
     indexer().index(p)
 
-  return {'result':'ok'}
+  return {'result': 'ok'}
 
 
 @index_api.route('/i', methods=['DELETE'])
@@ -31,7 +31,7 @@ def delete_index():
 
   indexer().remove(path)
 
-  return {'result':'ok'}
+  return {'result': 'ok'}
 
 
 @index_api.route('/q', methods=['GET'])
@@ -56,6 +56,7 @@ def query_index():
   items = result.query()
 
   return {"result": [x['path'] for x in items]}
+
 
 @index_api.route('/i/refresh', methods=['POST'])
 def refresh_index():

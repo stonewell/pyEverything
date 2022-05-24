@@ -4,8 +4,8 @@ from .index import index_api
 from .indexer import indexer
 
 
-def start_indexer():
-  indexer().start()
+def start_indexer(index_location=None):
+  indexer(index_location).start()
 
   atexit.register(stop_indexer)
 
