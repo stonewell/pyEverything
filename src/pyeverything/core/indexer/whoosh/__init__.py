@@ -70,7 +70,14 @@ class WhooshIndexerImpl(IndexerImpl):
 
     fields = []
 
+    origin_path = path
+
     if path is not None:
+      if path.find(':') >= 0:
+        path = f'{path.replace(":", "?")}*'
+      else:
+        path = f'*{path}*'
+
       fields.append('path')
 
     if content is not None:
@@ -84,13 +91,13 @@ class WhooshIndexerImpl(IndexerImpl):
       query_str += f' content:\'{content}\''
 
     if path is not None:
-      query_str += f' path:*{path}*'
+      query_str += f' path:{path}'
 
     query = qp.parse(query_str)
 
     logging.debug(f'query str:{query_str}, query_parsed:{query}')
 
-    return QueryResult(self.index_.searcher(), query)
+    return QueryResult(self.index_.searcher(), query, origin_path)
 
   def delete_path(self, path):
     if path is None:
@@ -98,7 +105,12 @@ class WhooshIndexerImpl(IndexerImpl):
 
     qp = MultifieldParser(['path'], schema=self.index_.schema)
 
-    query_str = f'path:*{path}*'
+    if path.find(':') >= 0:
+      path = f'{path.replace(":", "?")}*'
+    else:
+      path = f'*{path}*'
+
+    query_str = f'path:{path}'
 
     query = qp.parse(query_str)
 
@@ -140,7 +152,7 @@ class WhooshIndexerImpl(IndexerImpl):
     v = path.as_posix()
 
     if v.find(':') >= 0:
-      v = v[v.find(':') + 1:]
+      v = v.replace(':', '?')
 
     results = self.query(v, None)
 
