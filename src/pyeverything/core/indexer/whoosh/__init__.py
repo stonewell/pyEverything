@@ -68,12 +68,20 @@ class WhooshIndexerImpl(IndexerImpl):
     if path is None and content is None:
       raise ValueError('must provide either path or content to search')
 
-    qp = MultifieldParser(['path', 'content'], schema=self.index_.schema)
+    fields = []
+
+    if path is not None:
+      fields.append('path')
+
+    if content is not None:
+      fields.append('content')
+
+    qp = MultifieldParser(fields, schema=self.index_.schema)
 
     query_str = "NOT tag:'indexed_path'"
 
     if content is not None:
-      query_str += f' content:{content}'
+      query_str += f' content:\'{content}\''
 
     if path is not None:
       query_str += f' path:*{path}*'
@@ -127,3 +135,30 @@ class WhooshIndexerImpl(IndexerImpl):
         return [(fields['path'], fields['modified_time']) for fields in sr.documents(tag='indexed_path')]
     except:
       return []
+
+  def clear_non_exist(self, path):
+    v = path.as_posix()
+
+    if v.find(':') >= 0:
+      v = v[v.find(':') + 1:]
+
+    results = self.query(v, None)
+
+    for hit in results.query():
+      p = pathlib.Path(hit['path'])
+
+      if not p.as_posix().startswith(path.as_posix()):
+        continue
+
+      if not p.exists():
+        self.writer_.delete_by_term('path', p.as_posix())
+
+
+  def get_index_modified_time(self, path):
+    try:
+      with self.index_.searcher() as sr:
+        for fields in sr.documents(tag='indexed_path'):
+          if fields['path'] == path.as_posix():
+            return fields['modified_time']
+    except:
+      return None

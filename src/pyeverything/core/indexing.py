@@ -1,5 +1,5 @@
 import logging
-
+import datetime
 import sys
 import pathlib
 import multiprocessing as mp
@@ -73,14 +73,14 @@ class Indexer(object):
     if isinstance(path, str):
       path = pathlib.Path(path)
 
-    self.data_queue_.put_nowait((path, full_indexing, False, None))
+    self.data_queue_.put_nowait((path, full_indexing, False, None, False))
 
     if not self.use_service_:
       self.data_queue_.put_nowait(None)
       Indexer.indexing_func(self)
 
   def remove(self, path):
-    self.data_queue_.put_nowait((path, False, True, None))
+    self.data_queue_.put_nowait((path, False, True, None, False))
 
     if not self.use_service_:
       self.data_queue_.put_nowait(None)
@@ -90,7 +90,17 @@ class Indexer(object):
     return self.indexer_impl_.query(path, content)
 
   def touch(self, path, modify_time):
-    self.data_queue_.put_nowait((path, False, False, (path, modify_time)))
+    self.data_queue_.put_nowait((path, False, False, modify_time, False))
+
+    if not self.use_service_:
+      self.data_queue_.put_nowait(None)
+      Indexer.indexing_func(self)
+
+  def update(self, path):
+    if isinstance(path, str):
+      path = pathlib.Path(path)
+
+    self.data_queue_.put_nowait((path, False, False, None, True))
 
     if not self.use_service_:
       self.data_queue_.put_nowait(None)
@@ -136,19 +146,26 @@ class Indexer(object):
         logging.info('2.quit indexing function process')
         break
 
-      path, full_indexing, remove, touch = task
+      path, full_indexing, remove, touch, update = task
 
       if remove:
         indexer.__remove_index_func(path)
         continue
 
       if touch is not None:
-        path, modified_time = touch
-        indexer.__touch_index_func(path, modified_time)
+        indexer.__touch_index_func(path, touch)
         continue
 
       try:
         path = path.resolve()
+
+        modified_time = None
+
+        if update:
+          indexer.indexer_impl_.begin_index()
+          indexer.indexer_impl_.clear_non_exist(path)
+          modified_time = indexer.indexer_impl_.get_index_modified_time(path)
+          indexer.indexer_impl_.end_index()
 
         if path.is_dir() and path.exists():
           entries = walk_directory(path)
@@ -168,8 +185,18 @@ class Indexer(object):
             logging.info('3.quit indexing function process')
             break
 
+          e_mtime = datetime.datetime.fromtimestamp(entry.stat().st_mtime)
+          if modified_time is not None and e_mtime <= modified_time:
+            logging.debug(
+                f'skip {entry.as_posix()} since not modified, {e_mtime} < {modified_time}'
+            )
+            continue
+
           logging.debug(f'indexing document:{entry.as_posix()}')
           indexer.indexer_impl_.add_document(entry, full_indexing)
+
+        indexer.indexer_impl_.touch_path(path.as_posix(),
+                                         datetime.datetime.now())
       except:
         logging.exception(f'failed index {task}')
       finally:

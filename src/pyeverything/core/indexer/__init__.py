@@ -24,6 +24,12 @@ class IndexerImpl(object):
   def touch_path(self, path, modified_time):
     raise NotImplementedError()
 
+  def clear_non_exist(self, path):
+    raise NotImplementedError()
+
+  def get_index_modified_time(self, path):
+    raise NotImplementedError()
+
 
 def get_indexer_impl(data_path):
   from .whoosh import WhooshIndexerImpl

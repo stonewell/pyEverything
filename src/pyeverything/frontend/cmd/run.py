@@ -37,6 +37,13 @@ def parse_arguments():
       nargs='?',
       default='',
       metavar='<modified time>')
+  index_parser.add_argument(
+      "-u",
+      "--update",
+      help=
+      "update indexed files, remove deleted file, add new and update modified files",
+      action="store_true",
+      default=False)
   index_parser.add_argument("-f",
                             "--file",
                             help="file contains path to be indexed",
@@ -90,13 +97,17 @@ def main():
 def do_index(indexer, args):
   touch_time = get_touch_time(args)
 
-  logging.debug(f'{args.file} {args.args} {touch_time}, {args.remove}')
+  logging.debug(
+      f'f={args.file} p={args.args} t={touch_time}, r={args.remove}, u={args.update}'
+  )
   if args.file is not None:
     for line in args.file:
       if args.remove:
         indexer.remove(line)
       elif touch_time is not None:
-        indexer.touch(path, touch_time)
+        indexer.touch(line, touch_time)
+      elif args.update:
+        indexer.update(line)
       else:
         indexer.index(line)
 
@@ -105,11 +116,17 @@ def do_index(indexer, args):
       indexer.remove(path)
     elif touch_time is not None:
       indexer.touch(path, touch_time)
+    elif args.update:
+      indexer.update(path)
     else:
       indexer.index(path)
 
-  if (len(args.args) == 0 and args.file is None and touch_time is not None):
-    indexer.touch(None, touch_time)
+  if (len(args.args) == 0 and args.file is None):
+    if touch_time is not None:
+      indexer.touch(None, touch_time)
+    elif args.update:
+      for p, m in indexer.list_indexed_path():
+        indexer.update(p)
 
 
 def get_touch_time(args):
