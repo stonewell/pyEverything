@@ -18,6 +18,12 @@ class IndexerImpl(object):
   def query(self, path, content):
     raise NotImplementedError()
 
+  def delete_path(self, path):
+    raise NotImplementedError()
+
+  def touch_path(self, path, modified_time):
+    raise NotImplementedError()
+
 
 def get_indexer_impl(data_path):
   from .whoosh import WhooshIndexerImpl

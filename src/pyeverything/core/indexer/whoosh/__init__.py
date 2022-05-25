@@ -1,8 +1,9 @@
 import logging
 import datetime
+import pathlib
 from binaryornot.check import is_binary
 
-from whoosh.fields import Schema, ID, DATETIME, NGRAMWORDS
+from whoosh.fields import Schema, ID, DATETIME, NGRAMWORDS, TEXT
 from whoosh import index
 from whoosh.filedb.filestore import FileStorage
 from whoosh.qparser import MultifieldParser
@@ -12,6 +13,7 @@ from .query_result import QueryResult
 
 FILE_INDEXING_SCHEMA = Schema(path=ID(stored=True, unique=True),
                               content=NGRAMWORDS,
+                              tag=TEXT(stored=True),
                               create_time=DATETIME(stored=True),
                               modified_time=DATETIME(stored=True))
 
@@ -27,7 +29,7 @@ class WhooshIndexerImpl(IndexerImpl):
     self.storage_ = FileStorage(self.index_dir_)
 
     if index.exists_in(self.index_dir_):
-      self.index_ = self.storage_.open_index()
+      self.index_ = self.storage_.open_index(schema=FILE_INDEXING_SCHEMA)
       logging.debug(f'open existing index in {self.index_dir_}')
     else:
       self.index_ = self.storage_.create_index(FILE_INDEXING_SCHEMA)
@@ -68,7 +70,7 @@ class WhooshIndexerImpl(IndexerImpl):
 
     qp = MultifieldParser(['path', 'content'], schema=self.index_.schema)
 
-    query_str = ''
+    query_str = "NOT tag:'indexed_path'"
 
     if content is not None:
       query_str += f' content:{content}'
@@ -96,3 +98,32 @@ class WhooshIndexerImpl(IndexerImpl):
 
     with self.index_.searcher() as sr:
       self.writer_.delete_by_query(query, sr)
+
+  def touch_path(self, path, modified_time):
+    if path is None:
+      indexed_path = self.list_indexed_path()
+
+      path = [x[0] for x in indexed_path]
+    else:
+      path = [path]
+
+    for p in path:
+      pp = pathlib.Path(p)
+
+      if not pp.exists():
+        continue
+
+      logging.debug(f'update indexed path:{pp.resolve().as_posix()} modified time')
+      self.writer_.update_document(
+        path=pp.resolve().as_posix(),
+        create_time=datetime.datetime.fromtimestamp(pp.stat().st_ctime),
+        modified_time=modified_time,
+        content='',
+        tag='indexed_path')
+
+  def list_indexed_path(self):
+    try:
+      with self.index_.searcher() as sr:
+        return [(fields['path'], fields['modified_time']) for fields in sr.documents(tag='indexed_path')]
+    except:
+      return []

@@ -73,14 +73,14 @@ class Indexer(object):
     if isinstance(path, str):
       path = pathlib.Path(path)
 
-    self.data_queue_.put_nowait((path, full_indexing, False))
+    self.data_queue_.put_nowait((path, full_indexing, False, None))
 
     if not self.use_service_:
       self.data_queue_.put_nowait(None)
       Indexer.indexing_func(self)
 
   def remove(self, path):
-    self.data_queue_.put_nowait((path, False, True))
+    self.data_queue_.put_nowait((path, False, True, None))
 
     if not self.use_service_:
       self.data_queue_.put_nowait(None)
@@ -88,6 +88,40 @@ class Indexer(object):
 
   def query(self, path, content):
     return self.indexer_impl_.query(path, content)
+
+  def touch(self, path, modify_time):
+    self.data_queue_.put_nowait((path, False, False, (path, modify_time)))
+
+    if not self.use_service_:
+      self.data_queue_.put_nowait(None)
+      Indexer.indexing_func(self)
+
+  def list_indexed_path(self):
+    return self.indexer_impl_.list_indexed_path()
+
+  def __remove_index_func(self, path):
+    logging.debug(f'remove index for: {path}')
+
+    self.indexer_impl_.begin_index()
+    try:
+      self.indexer_impl_.delete_path(path)
+    except:
+      logging.exception(f'error removing index:{path}')
+    finally:
+      self.indexer_impl_.end_index()
+      logging.debug(f'done remove index for: {path}')
+
+  def __touch_index_func(self, path, modified_time):
+    logging.debug(f'touch index for: {path}')
+
+    self.indexer_impl_.begin_index()
+    try:
+      self.indexer_impl_.touch_path(path, modified_time)
+    except:
+      logging.exception(f'error touch index:{path}')
+    finally:
+      self.indexer_impl_.end_index()
+      logging.debug(f'done touch index for: {path}')
 
   @staticmethod
   def indexing_func(indexer):
@@ -102,21 +136,18 @@ class Indexer(object):
         logging.info('2.quit indexing function process')
         break
 
+      path, full_indexing, remove, touch = task
+
+      if remove:
+        indexer.__remove_index_func(path)
+        continue
+
+      if touch is not None:
+        path, modified_time = touch
+        indexer.__touch_index_func(path, modified_time)
+        continue
+
       try:
-        path, full_indexing, remove = task
-
-        if remove:
-          logging.debug(f'remove index for: {path}')
-
-          indexer.indexer_impl_.begin_index()
-          try:
-            indexer.indexer_impl_.delete_path(path)
-          finally:
-            indexer.indexer_impl_.end_index()
-            logging.debug(f'done remove index for: {path}')
-
-          continue
-
         path = path.resolve()
 
         if path.is_dir() and path.exists():
@@ -125,8 +156,7 @@ class Indexer(object):
           entries = [path]
         else:
           logging.warning(
-              f'get a index request with invalid path:{path.as_posix()}'
-          )
+              f'get a index request with invalid path:{path.as_posix()}')
           continue
 
         logging.debug(f'begin index for: {path.as_posix()}')
@@ -144,7 +174,10 @@ class Indexer(object):
         logging.exception(f'failed index {task}')
       finally:
         indexer.indexer_impl_.end_index()
-        logging.debug(f'done index for: {path.as_posix() if not isinstance(path, str) else path}')
+        logging.debug(
+            f'done index for: {path.as_posix() if not isinstance(path, str) else path}'
+        )
+
 
 if __name__ == '__main__':
   ix = Indexer()

@@ -1,6 +1,7 @@
 import argparse
 import logging
 import pathlib
+import datetime
 
 from pyeverything.core.indexing import Indexer
 
@@ -29,6 +30,13 @@ def parse_arguments():
                             help="delete index with path",
                             action="store_true",
                             default=False)
+  index_parser.add_argument(
+      "-t",
+      "--touch",
+      help="mark index last update time with given arg or current time",
+      nargs='?',
+      default='',
+      metavar='<modified time>')
   index_parser.add_argument("-f",
                             "--file",
                             help="file contains path to be indexed",
@@ -37,7 +45,7 @@ def parse_arguments():
                             default=None)
   index_parser.add_argument('args',
                             help="path to be indexed",
-                            nargs='+',
+                            nargs='*',
                             metavar='<path>')
 
   query_parser = sub_parsers.add_parser('query', help='query operations')
@@ -51,6 +59,8 @@ def parse_arguments():
                             type=str,
                             required=False,
                             default=None)
+
+  list_parser = sub_parsers.add_parser('list', help='list indexed path')
 
   return parser.parse_args()
 
@@ -72,21 +82,48 @@ def main():
     do_index(indexer, args)
   elif args.op == 'query':
     do_query(indexer, args)
+  elif args.op == 'list':
+    for p, m in indexer.list_indexed_path():
+      print(f'path:{p}, modified time:{m}')
 
 
 def do_index(indexer, args):
+  touch_time = get_touch_time(args)
+
+  logging.debug(f'{args.file} {args.args} {touch_time}, {args.remove}')
   if args.file is not None:
     for line in args.file:
       if args.remove:
         indexer.remove(line)
+      elif touch_time is not None:
+        indexer.touch(path, touch_time)
       else:
         indexer.index(line)
 
   for path in args.args:
     if args.remove:
       indexer.remove(path)
+    elif touch_time is not None:
+      indexer.touch(path, touch_time)
     else:
       indexer.index(path)
+
+  if (len(args.args) == 0 and args.file is None and touch_time is not None):
+    indexer.touch(None, touch_time)
+
+
+def get_touch_time(args):
+  if args.touch == '':
+    return None
+
+  if args.touch is None:
+    return datetime.datetime.now()
+
+  try:
+    return datetime.datetime.fromisoformat(args.touch)
+  except:
+    logging.warning(f'invalid datetime string:{args.touch}')
+    return datetime.datetime.now()
 
 
 def do_query(indexer, args):
