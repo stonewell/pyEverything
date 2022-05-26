@@ -149,6 +149,9 @@ def do_query(indexer, args):
   for hit in r.query():
     print(hit['path'])
 
+    if args.content is not None:
+      print(hit.highlights('content', text=pathlib.Path(hit['path']).read_text()))
+
 
 if __name__ == '__main__':
   main()

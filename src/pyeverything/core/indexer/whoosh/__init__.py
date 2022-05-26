@@ -74,6 +74,7 @@ class WhooshIndexerImpl(IndexerImpl):
 
     if path is not None:
       if path.find(':') >= 0:
+        path = pathlib.Path(path).resolve().as_posix()
         path = f'{path.replace(":", "?")}*'
       else:
         path = f'*{path}*'

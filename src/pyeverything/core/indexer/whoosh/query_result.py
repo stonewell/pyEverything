@@ -1,4 +1,5 @@
 import pathlib
+import logging
 from whoosh.query import Regex
 
 
@@ -18,6 +19,7 @@ class QueryResult(object):
     doc_filter = self.__get_doc_filter()
 
     if doc_filter:
+      logging.debug(f'filter path with:{doc_filter}')
       return self.searcher_.search(self.query_, limit=limit, filter=doc_filter)
     else:
       return self.searcher_.search(self.query_, limit=limit)
@@ -37,6 +39,6 @@ class QueryResult(object):
     check = self.origin_path_ is not None and self.origin_path_.find(':') >= 0
 
     if check:
-      return Regex('path', f'^{self.origin_path_}.*')
+      return Regex('path', f'^{pathlib.Path(self.origin_path_).resolve().as_posix()}.*')
 
     return None
