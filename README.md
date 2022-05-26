@@ -12,6 +12,6 @@ pip install git+https://github.com/stonewell/pyEverything
 - [X] list indexed path
 - [X] refresh index (delete non existing, update changed, add new)
 - [ ] support raw query string
-- [ ] get the hit line and column
+- [X] get the hit line and column
 - [ ] generate textmate compatible output
 - [ ] update will remove the indexed file which ignore now

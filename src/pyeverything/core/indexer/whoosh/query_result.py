@@ -1,5 +1,6 @@
 import pathlib
 import logging
+from . import matching
 from whoosh.query import Regex
 
 
@@ -39,6 +40,10 @@ class QueryResult(object):
     check = self.origin_path_ is not None and self.origin_path_.find(':') >= 0
 
     if check:
-      return Regex('path', f'^{pathlib.Path(self.origin_path_).resolve().as_posix()}.*')
+      return Regex(
+          'path', f'^{pathlib.Path(self.origin_path_).resolve().as_posix()}.*')
 
     return None
+
+  def get_matching_info(self, hit):
+    return matching.get_matching_info(hit)
