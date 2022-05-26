@@ -142,6 +142,71 @@ def get_touch_time(args):
     logging.warning(f'invalid datetime string:{args.touch}')
     return datetime.datetime.now()
 
+def set_matched_filter(tokens, termset):
+  for t in tokens:
+    t.matched = t.text in termset
+    yield t
+
+def highlight_hit(hitobj, fieldname, text=None, top=3, minscore=1):
+  results = hitobj.results
+  schema = results.searcher.schema
+  field = schema[fieldname]
+  to_bytes = field.to_bytes
+  from_bytes = field.from_bytes
+
+  if text is None:
+    if fieldname not in hitobj:
+      raise KeyError("Field %r is not stored." % fieldname)
+    text = hitobj[fieldname]
+
+  # Get the terms searched for/matched in this field
+  if results.has_matched_terms():
+    bterms = (term for term in results.matched_terms()
+                      if term[0] == fieldname)
+  else:
+    bterms = results.query_terms(expand=True, fieldname=fieldname)
+
+  # Convert bytes to unicode
+  words = frozenset(from_bytes(term[1]) for term in bterms)
+
+  # Retokenize the text
+  analyzer = results.searcher.schema[fieldname].analyzer
+  tokens = analyzer(text, positions=True, chars=True, mode="index",
+                              removestops=False)
+  # Set Token.matched attribute for tokens that match a query term
+  tokens = set_matched_filter(tokens, words)
+  tokens = _merge_matched_tokens(tokens)
+
+  return tokens
+
+def _merge_matched_tokens(tokens):
+  # Merges consecutive matched tokens together, so they are highlighted
+  # as one
+
+  token = None
+
+  for t in tokens:
+    if not t.matched:
+      if token is not None:
+        yield token
+        token = None
+      yield t
+      continue
+
+    if token is None:
+      token = t.copy()
+    elif t.startchar <= token.endchar:
+      if t.endchar > token.endchar:
+        token.text += t.text[token.endchar-t.endchar:]
+        token.endchar = t.endchar
+    else:
+      yield token
+      token = None
+      # t was not merged, also has to be yielded
+      yield t
+
+  if token is not None:
+    yield token
 
 def do_query(indexer, args):
   r = indexer.query(args.path, args.content)
@@ -149,8 +214,13 @@ def do_query(indexer, args):
   for hit in r.query():
     print(hit['path'])
 
+    text = pathlib.Path(hit['path']).read_text()
+
+    for t in highlight_hit(hit, 'content', text=text):
+      print(t)
+
     if args.content is not None:
-      print(hit.highlights('content', text=pathlib.Path(hit['path']).read_text()))
+      print(hit.highlights('content', text=text))
 
 
 if __name__ == '__main__':
