@@ -13,6 +13,6 @@ pip install git+https://github.com/stonewell/pyEverything
 - [X] refresh index (delete non existing, update changed, add new)
 - [ ] support raw query string
 - [X] get the hit line and column
-- [ ] generate textmate compatible output
+- [X] generate textmate compatible output
 - [ ] update will remove the indexed file which ignore now
 - [ ] check matching score

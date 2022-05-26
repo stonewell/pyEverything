@@ -153,23 +153,49 @@ def do_query(indexer, args):
     args.no_color = True
 
   for hit in r.query():
-    if args.no_color:
-      print(hit['path'])
-    else:
-      print(colored(hit['path'], 'green', attrs=['bold']))
+    path = hit['path']
 
-    if args.content is not None:
-      text = pathlib.Path(hit['path']).read_text()
+    if args.ackmate:
+      print(f':{path}')
+    elif args.no_color:
+      print(path)
+    else:
+      print(colored(path, 'green', attrs=['bold']))
+
+    if args.content is not None and pathlib.Path(path).exists():
+      text = pathlib.Path(path).read_text()
+
+      matching_info_text = None
+      line_text = None
+      line_num = 0
 
       for m in r.get_matching_info(hit):
         l, start, length, text = m
 
-        if args.no_color:
+        if args.ackmate:
+          if line_num != l + 1:
+            if matching_info_text is not None:
+              print(f'{matching_info_text}:{line_text}')
+
+            matching_info_text = f'{l + 1};{start} {length}'
+            line_text = text
+            line_num = l + 1
+          else:
+            matching_info_text += f',{start} {length}'
+        elif args.no_color:
           print(f'{l+1}: {text}')
         else:
-          print(
-              f'{colored(l + 1, "yellow", attrs=["bold"])}: {text[:start]}{colored(text[start:start + length], "grey", on_color="on_yellow")}{text[start + length:]}'
-          )
+          line_num = colored(l + 1, "yellow", attrs=["bold"])
+          line_text = [
+              text[:start],
+              colored(text[start:start + length], "grey",
+                      on_color="on_yellow"), text[start + length:]
+          ]
+          print(f'{line_num}: {"".join(line_text)}')
+
+      if matching_info_text is not None:
+        print(f'{matching_info_text}:{line_text}')
+      print('')
 
 
 if __name__ == '__main__':
