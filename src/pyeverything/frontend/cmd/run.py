@@ -2,6 +2,7 @@ import argparse
 import logging
 import pathlib
 import datetime
+from termcolor import colored
 
 from pyeverything.core.indexing import Indexer
 
@@ -153,7 +154,10 @@ def do_query(indexer, args):
       text = pathlib.Path(hit['path']).read_text()
 
       for m in r.get_matching_info(hit):
-        print(m)
+        l, start, length, text = m
+
+        print(f'{colored(l, "red")}:')
+
 
 
 if __name__ == '__main__':
