@@ -18,7 +18,7 @@ class QueryResult(object):
     doc_filter = self.__get_doc_filter()
 
     if doc_filter:
-      return self.searcher_.search(self.query_, limit=limit, mask=doc_filter)
+      return self.searcher_.search(self.query_, limit=limit, filter=doc_filter)
     else:
       return self.searcher_.search(self.query_, limit=limit)
 
@@ -29,7 +29,7 @@ class QueryResult(object):
       return self.searcher_.search_page(self.query_,
                                         page,
                                         page_len=page_len,
-                                        mask=doc_filter)
+                                        filter=doc_filter)
     else:
       return self.searcher_.search_page(self.query_, page, page_len=page_len)
 
