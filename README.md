@@ -15,3 +15,4 @@ pip install git+https://github.com/stonewell/pyEverything
 - [X] get the hit line and column
 - [ ] generate textmate compatible output
 - [ ] update will remove the indexed file which ignore now
+- [ ] check matching score
