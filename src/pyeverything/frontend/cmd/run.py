@@ -67,6 +67,8 @@ def parse_arguments():
                             type=str,
                             required=False,
                             default=None)
+  query_parser.add_argument('--no_color', action='store_true', default=False)
+  query_parser.add_argument('--ackmate', action='store_true', default=False)
 
   list_parser = sub_parsers.add_parser('list', help='list indexed path')
 
@@ -147,8 +149,14 @@ def get_touch_time(args):
 def do_query(indexer, args):
   r = indexer.query(args.path, args.content)
 
+  if args.ackmate:
+    args.no_color = True
+
   for hit in r.query():
-    print(hit['path'])
+    if args.no_color:
+      print(hit['path'])
+    else:
+      print(colored(hit['path'], 'green', attrs=['bold']))
 
     if args.content is not None:
       text = pathlib.Path(hit['path']).read_text()
@@ -156,8 +164,12 @@ def do_query(indexer, args):
       for m in r.get_matching_info(hit):
         l, start, length, text = m
 
-        print(f'{colored(l, "red")}:')
-
+        if args.no_color:
+          print(f'{l+1}: {text}')
+        else:
+          print(
+              f'{colored(l + 1, "yellow", attrs=["bold"])}: {text[:start]}{colored(text[start:start + length], "grey", on_color="on_yellow")}{text[start + length:]}'
+          )
 
 
 if __name__ == '__main__':
