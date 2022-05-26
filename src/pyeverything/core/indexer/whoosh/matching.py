@@ -14,7 +14,6 @@ def __highlight_hit(hitobj, fieldname, text):
   results = hitobj.results
   schema = results.searcher.schema
   field = schema[fieldname]
-  to_bytes = field.to_bytes
   from_bytes = field.from_bytes
 
   # Get the terms searched for/matched in this field
@@ -86,18 +85,16 @@ def get_matching_info(hit):
   t = next(token_iter)
 
   for l in StringIO(text):
-      line_end = line_start + len(l)
+    line_end = line_start + len(l)
 
-      while t.startchar >= line_start and t.endchar < line_end:
-        yield (line_count,
-               t.startchar - line_start,
-               t.endchar - t.startchar,
-               l.replace('\n', '').replace('\r', ''))
+    while t.startchar >= line_start and t.endchar < line_end:
+      yield (line_count, t.startchar - line_start, t.endchar - t.startchar,
+             l.replace('\n', '').replace('\r', ''))
 
-        try:
-          t = next(token_iter)
-        except(StopIteration):
-          return
+      try:
+        t = next(token_iter)
+      except (StopIteration):
+        return
 
-      line_count += 1
-      line_start = line_end
+    line_count += 1
+    line_start = line_end
