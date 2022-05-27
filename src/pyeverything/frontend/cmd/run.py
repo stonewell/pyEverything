@@ -69,6 +69,7 @@ def parse_arguments():
                             default=None)
   query_parser.add_argument('--no_color', action='store_true', default=False)
   query_parser.add_argument('--ackmate', action='store_true', default=False)
+  query_parser.add_argument('--path_only', action='store_true', default=False)
 
   list_parser = sub_parsers.add_parser('list', help='list indexed path')
 
@@ -162,7 +163,7 @@ def do_query(indexer, args):
     else:
       print(colored(path, 'green', attrs=['bold']))
 
-    if args.content is not None and pathlib.Path(path).exists():
+    if not args.path_only and args.content is not None and pathlib.Path(path).exists():
       text = pathlib.Path(path).read_text()
 
       matching_info_text = None
