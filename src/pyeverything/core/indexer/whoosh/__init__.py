@@ -3,7 +3,7 @@ import datetime
 import pathlib
 from binaryornot.check import is_binary
 
-from whoosh.fields import Schema, ID, DATETIME, NGRAMWORDS, TEXT
+from whoosh.fields import Schema, ID, DATETIME, NGRAM, TEXT
 from whoosh import index
 from whoosh.filedb.filestore import FileStorage
 from whoosh.qparser import MultifieldParser
@@ -12,7 +12,7 @@ from .. import IndexerImpl
 from .query_result import QueryResult
 
 FILE_INDEXING_SCHEMA = Schema(path=ID(stored=True, unique=True),
-                              content=NGRAMWORDS,
+                              content=NGRAM,
                               tag=TEXT(stored=True),
                               create_time=DATETIME(stored=True),
                               modified_time=DATETIME(stored=True))
@@ -89,7 +89,7 @@ class WhooshIndexerImpl(IndexerImpl):
     query_str = "NOT tag:'indexed_path'"
 
     if content is not None:
-      query_str += f' content:\'{content}\''
+      query_str += f' content:{content}'
 
     if path is not None:
       query_str += f' path:{path}'
@@ -134,18 +134,20 @@ class WhooshIndexerImpl(IndexerImpl):
       if not pp.exists():
         continue
 
-      logging.debug(f'update indexed path:{pp.resolve().as_posix()} modified time')
-      self.writer_.update_document(
-        path=pp.resolve().as_posix(),
-        create_time=datetime.datetime.fromtimestamp(pp.stat().st_ctime),
-        modified_time=modified_time,
-        content='',
-        tag='indexed_path')
+      logging.debug(
+          f'update indexed path:{pp.resolve().as_posix()} modified time')
+      self.writer_.update_document(path=pp.resolve().as_posix(),
+                                   create_time=datetime.datetime.fromtimestamp(
+                                       pp.stat().st_ctime),
+                                   modified_time=modified_time,
+                                   content='',
+                                   tag='indexed_path')
 
   def list_indexed_path(self):
     try:
       with self.index_.searcher() as sr:
-        return [(fields['path'], fields['modified_time']) for fields in sr.documents(tag='indexed_path')]
+        return [(fields['path'], fields['modified_time'])
+                for fields in sr.documents(tag='indexed_path')]
     except:
       return []
 
@@ -165,7 +167,6 @@ class WhooshIndexerImpl(IndexerImpl):
 
       if not p.exists():
         self.writer_.delete_by_term('path', p.as_posix())
-
 
   def get_index_modified_time(self, path):
     try:
