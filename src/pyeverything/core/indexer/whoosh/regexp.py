@@ -1,5 +1,4 @@
 from collections import deque
-from io import StringIO
 import pathlib
 import re
 
@@ -7,6 +6,8 @@ import sre_parse
 from sre_constants import LITERAL, NOT_LITERAL, MAX_REPEAT
 from sre_constants import IN, BRANCH, MIN_REPEAT, SUBPATTERN, MAXREPEAT
 from sre_constants import ASSERT, ASSERT_NOT, ANY, GROUPREF, AT
+
+from .utils import generate_match_info
 
 
 def __sre_tree_to_query(pattern, minisize=2):
@@ -182,26 +183,7 @@ def regexp_to_query(regex_str, minisize=2):
 def regexp_match_info(hit, pattern):
   text = pathlib.Path(hit['path']).read_text()
 
-  line_start = 0
-  line_count = 0
-
   token_iter = re.finditer(pattern, text)
-  try:
-    t = next(token_iter)
-  except (StopIteration):
-    return
 
-  for line in StringIO(text):
-    line_end = line_start + len(line)
-
-    while t.start() >= line_start and t.end() < line_end:
-      yield (line_count, t.start() - line_start, t.end() - t.start(),
-             line.replace('\n', '').replace('\r', ''))
-
-      try:
-        t = next(token_iter)
-      except (StopIteration):
-        return
-
-    line_count += 1
-    line_start = line_end
+  return generate_match_info(text, token_iter, lambda t: t.start(),
+                             lambda t: t.end())

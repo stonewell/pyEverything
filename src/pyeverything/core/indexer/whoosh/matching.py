@@ -1,5 +1,5 @@
 import pathlib
-from io import StringIO
+from .utils import generate_match_info
 
 
 def __set_matched_filter(tokens, termset):
@@ -78,23 +78,7 @@ def get_matching_info(hit):
   if len(matched_tokens) == 0:
     return
 
-  line_start = 0
-  line_count = 0
-
   token_iter = iter(matched_tokens)
-  t = next(token_iter)
 
-  for line in StringIO(text):
-    line_end = line_start + len(line)
-
-    while t.startchar >= line_start and t.endchar < line_end:
-      yield (line_count, t.startchar - line_start, t.endchar - t.startchar,
-             line.replace('\n', '').replace('\r', ''))
-
-      try:
-        t = next(token_iter)
-      except (StopIteration):
-        return
-
-    line_count += 1
-    line_start = line_end
+  return generate_match_info(text, token_iter, lambda t: t.startchar,
+                             lambda t: t.endchar)
