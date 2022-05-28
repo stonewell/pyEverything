@@ -16,3 +16,8 @@ pip install git+https://github.com/stonewell/pyEverything
 - [X] generate textmate compatible output
 - [ ] update will remove the indexed file which ignore now
 - [ ] use 3-gram index, and full support regex
+
+# Reference
+https://swtch.com/~rsc/regexp/regexp4.html
+http://www.dalkescientific.com/Python/sre_dump.html
+https://github.com/google/sre_yield
