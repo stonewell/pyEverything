@@ -84,12 +84,12 @@ def get_matching_info(hit):
   token_iter = iter(matched_tokens)
   t = next(token_iter)
 
-  for l in StringIO(text):
-    line_end = line_start + len(l)
+  for line in StringIO(text):
+    line_end = line_start + len(line)
 
     while t.startchar >= line_start and t.endchar < line_end:
       yield (line_count, t.startchar - line_start, t.endchar - t.startchar,
-             l.replace('\n', '').replace('\r', ''))
+             line.replace('\n', '').replace('\r', ''))
 
       try:
         t = next(token_iter)

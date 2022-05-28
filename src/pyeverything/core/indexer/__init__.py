@@ -15,7 +15,7 @@ class IndexerImpl(object):
   def end_index(self):
     raise NotImplementedError()
 
-  def query(self, path, content):
+  def query(self, path, content, ignore_case=True, raw_pattern=False):
     raise NotImplementedError()
 
   def delete_path(self, path):

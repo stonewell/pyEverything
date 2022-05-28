@@ -1,17 +1,21 @@
 import pathlib
 import logging
-from . import matching
+
 from whoosh.query import Regex
+
+from . import matching
+from .regexp import regexp_match_info
 
 
 class QueryResult(object):
 
-  def __init__(self, searcher, query, origin_path):
+  def __init__(self, searcher, query, origin_path, use_raw_match):
     super().__init__()
 
     self.searcher_ = searcher
     self.query_ = query
     self.origin_path_ = origin_path
+    self.use_raw_match_ = use_raw_match
 
   def close(self):
     self.searcher_.close()
@@ -45,5 +49,8 @@ class QueryResult(object):
 
     return None
 
-  def get_matching_info(self, hit):
-    return matching.get_matching_info(hit)
+  def get_matching_info(self, hit, content):
+    if self.use_raw_match_:
+      return matching.get_matching_info(hit)
+    else:
+      return regexp_match_info(hit, content)

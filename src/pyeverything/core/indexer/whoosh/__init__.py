@@ -65,7 +65,7 @@ class WhooshIndexerImpl(IndexerImpl):
     self.writer_.commit(optimize=True)
     self.writer_ = None
 
-  def query(self, path, content):
+  def query(self, path, content, ignore_case=True, raw_pattern=False):
     if path is None and content is None:
       raise ValueError('must provide either path or content to search')
 
@@ -89,11 +89,16 @@ class WhooshIndexerImpl(IndexerImpl):
 
     query_str = "NOT tag:'indexed_path'"
 
+    use_raw_match = raw_pattern
     if content is not None:
-      content_query_str = regexp_to_query(content)
+      if not use_raw_match:
+        content_query_str = regexp_to_query(f'(?m){"(?i)" if ignore_case else ""}{content}')
+      else:
+        content_query_str = content
 
       if len(content_query_str) == 0:
-        raise ValueError(f'regexp {content} can not query on the index, please refine the regexp')
+        use_raw_match = True
+        content_query_str = content
       query_str += f' content:{content_query_str}'
 
     if path is not None:
@@ -103,7 +108,8 @@ class WhooshIndexerImpl(IndexerImpl):
 
     logging.debug(f'query str:{query_str}, query_parsed:{query}')
 
-    return QueryResult(self.index_.searcher(), query, origin_path)
+    return QueryResult(self.index_.searcher(), query, origin_path,
+                       use_raw_match)
 
   def delete_path(self, path):
     if path is None:

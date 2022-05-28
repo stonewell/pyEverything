@@ -86,8 +86,8 @@ class Indexer(object):
       self.data_queue_.put_nowait(None)
       Indexer.indexing_func(self)
 
-  def query(self, path, content):
-    return self.indexer_impl_.query(path, content)
+  def query(self, path, content, ignore_case=True, raw_pattern=False):
+    return self.indexer_impl_.query(path, content, ignore_case, raw_pattern)
 
   def touch(self, path, modify_time):
     self.data_queue_.put_nowait((path, False, False, modify_time, False))

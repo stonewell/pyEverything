@@ -70,6 +70,8 @@ def parse_arguments():
   query_parser.add_argument('--no_color', action='store_true', default=False)
   query_parser.add_argument('--ackmate', action='store_true', default=False)
   query_parser.add_argument('--path_only', action='store_true', default=False)
+  query_parser.add_argument('-i', '--ignore_case', action='store_true', default=False)
+  query_parser.add_argument('--raw_pattern', action='store_true', default=False)
 
   list_parser = sub_parsers.add_parser('list', help='list indexed path')
 
@@ -148,7 +150,7 @@ def get_touch_time(args):
 
 
 def do_query(indexer, args):
-  r = indexer.query(args.path, args.content)
+  r = indexer.query(args.path, args.content, args.ignore_case, args.raw_pattern)
 
   if args.ackmate:
     args.no_color = True
@@ -156,21 +158,33 @@ def do_query(indexer, args):
   for hit in r.query():
     path = hit['path']
 
-    if args.ackmate:
-      print(f':{path}')
-    elif args.no_color:
-      print(path)
+    def output_path():
+      if args.ackmate:
+        print(f':{path}')
+      elif args.no_color:
+        print(path)
+      else:
+        print(colored(path, 'green', attrs=['bold']))
+
+    p_path = pathlib.Path(path)
+
+    if not p_path.exists():
+      logging.debug(f'path:{path} does not exist, skipping')
+      continue
+
+    if args.path_only or args.content is None:
+      output_path()
     else:
-      print(colored(path, 'green', attrs=['bold']))
-
-    if not args.path_only and args.content is not None and pathlib.Path(path).exists():
-      text = pathlib.Path(path).read_text()
-
       matching_info_text = None
       line_text = None
       line_num = 0
 
-      for m in r.get_matching_info(hit):
+      path_output_done = False
+      for m in r.get_matching_info(hit, args.content):
+        if not path_output_done:
+          output_path()
+          path_output_done = True
+
         l, start, length, text = m
 
         if args.ackmate:
@@ -196,7 +210,11 @@ def do_query(indexer, args):
 
       if matching_info_text is not None:
         print(f'{matching_info_text}:{line_text}')
-      print('')
+
+      if path_output_done:
+        print('')
+      else:
+        logging.debug(f'path:{path} no matching, skipping')
 
 
 if __name__ == '__main__':

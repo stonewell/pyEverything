@@ -11,11 +11,11 @@ pip install git+https://github.com/stonewell/pyEverything
 - [X] ignore vcs file, and files vcs ignore
 - [X] list indexed path
 - [X] refresh index (delete non existing, update changed, add new)
-- [ ] support raw query string
+- [X] support raw query string
 - [X] get the hit line and column
 - [X] generate textmate compatible output
 - [ ] update will remove the indexed file which ignore now
-- [ ] use 3-gram index, and full support regex
+- [X] use 3-gram index, and full support regex
 
 # Reference
 - [https://swtch.com/~rsc/regexp/regexp4.html](https://swtch.com/~rsc/regexp/regexp4.html)
