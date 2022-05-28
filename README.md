@@ -18,6 +18,6 @@ pip install git+https://github.com/stonewell/pyEverything
 - [ ] use 3-gram index, and full support regex
 
 # Reference
-[https://swtch.com/~rsc/regexp/regexp4.html]
-[http://www.dalkescientific.com/Python/sre_dump.html]
-[https://github.com/google/sre_yield]
+[https://swtch.com/~rsc/regexp/regexp4.html](https://swtch.com/~rsc/regexp/regexp4.html)
+[http://www.dalkescientific.com/Python/sre_dump.html](http://www.dalkescientific.com/Python/sre_dump.html)
+[https://github.com/google/sre_yield](https://github.com/google/sre_yield)
