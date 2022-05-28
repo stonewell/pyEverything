@@ -10,6 +10,7 @@ from whoosh.qparser import MultifieldParser
 
 from .. import IndexerImpl
 from .query_result import QueryResult
+from .regexp import regexp_to_query
 
 FILE_INDEXING_SCHEMA = Schema(path=ID(stored=True, unique=True),
                               content=NGRAM,
@@ -89,7 +90,11 @@ class WhooshIndexerImpl(IndexerImpl):
     query_str = "NOT tag:'indexed_path'"
 
     if content is not None:
-      query_str += f' content:{content}'
+      content_query_str = regexp_to_query(content)
+
+      if len(content_query_str) == 0:
+        raise ValueError(f'regexp {content} can not query on the index, please refine the regexp')
+      query_str += f' content:{content_query_str}'
 
     if path is not None:
       query_str += f' path:{path}'
