@@ -109,6 +109,7 @@ class WhooshIndexerImpl(IndexerImpl):
     logging.debug(f'query str:{query_str}, query_parsed:{query}')
 
     return QueryResult(self.index_.searcher(), query, origin_path,
+                       ignore_case,
                        use_raw_match)
 
   def delete_path(self, path):
