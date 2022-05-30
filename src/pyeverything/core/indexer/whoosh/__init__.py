@@ -13,7 +13,7 @@ from .query_result import QueryResult
 from .regexp import regexp_to_query
 
 FILE_INDEXING_SCHEMA = Schema(path=ID(stored=True, unique=True),
-                              content=NGRAM,
+                              content=NGRAM(minsize=1, maxsize=3),
                               tag=TEXT(stored=True),
                               create_time=DATETIME(stored=True),
                               modified_time=DATETIME(stored=True))
