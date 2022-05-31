@@ -84,7 +84,9 @@ def main():
   if args.debug > 0:
     logging.getLogger('').setLevel(logging.DEBUG)
 
-  logging.debug(args.op)
+  logging.getLogger('binaryornot').setLevel(logging.WARNING)
+
+  logging.debug(f'operation:{args.op}')
 
   if args.location is not None:
     logging.debug(f'index store location:{args.location.resolve().as_posix()}')
