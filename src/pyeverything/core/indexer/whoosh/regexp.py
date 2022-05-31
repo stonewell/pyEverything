@@ -182,7 +182,7 @@ def regexp_to_query(regex_str, minisize=2):
 
 
 def regexp_match_info(hit, pattern, ignore_case):
-  text = pathlib.Path(hit['path']).read_text()
+  text = pathlib.Path(hit['path']).read_text(encoding='utf-8', errors='ignore')
 
   logging.debug(f'matching file:{hit["path"]} using:{pattern}, ignore_case:{ignore_case}')
 

@@ -68,7 +68,7 @@ def __merge_matched_tokens(tokens):
 
 
 def get_matching_info(hit):
-  text = pathlib.Path(hit['path']).read_text()
+  text = pathlib.Path(hit['path']).read_text(encoding='utf-8', errors='ignore')
 
   matched_tokens = []
   for t in __highlight_hit(hit, 'content', text=text):
