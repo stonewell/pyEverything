@@ -4,7 +4,7 @@ import pathlib
 import re
 from binaryornot.check import is_binary
 
-from whoosh.fields import Schema, ID, DATETIME, NGRAM, TEXT
+from whoosh.fields import Schema, ID, DATETIME, NGRAM, KEYWORD
 from whoosh import index
 from whoosh.filedb.filestore import FileStorage
 from whoosh.qparser import MultifieldParser
@@ -16,7 +16,7 @@ from .regexp import regexp_to_query
 FILE_INDEXING_SCHEMA = Schema(path=ID(stored=True, unique=True),
                               content=NGRAM(minsize=1, maxsize=3),
                               path_content=NGRAM(minsize=1, maxsize=3),
-                              tag=TEXT(stored=True),
+                              tag=KEYWORD,
                               create_time=DATETIME(stored=True),
                               modified_time=DATETIME(stored=True))
 
@@ -163,6 +163,7 @@ class WhooshIndexerImpl(IndexerImpl):
         return [(fields['path'], fields['modified_time'])
                 for fields in sr.documents(tag='indexed_path')]
     except:
+      logging.exception('failed')
       return []
 
   def clear_non_exist(self, path):
