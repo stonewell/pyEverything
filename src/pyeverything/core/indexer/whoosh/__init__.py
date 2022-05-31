@@ -1,6 +1,7 @@
 import logging
 import datetime
 import pathlib
+import re
 from binaryornot.check import is_binary
 
 from whoosh.fields import Schema, ID, DATETIME, NGRAM, TEXT
@@ -14,6 +15,7 @@ from .regexp import regexp_to_query
 
 FILE_INDEXING_SCHEMA = Schema(path=ID(stored=True, unique=True),
                               content=NGRAM(minsize=1, maxsize=3),
+                              path_content=NGRAM(minsize=1, maxsize=3),
                               tag=TEXT(stored=True),
                               create_time=DATETIME(stored=True),
                               modified_time=DATETIME(stored=True))
@@ -48,6 +50,7 @@ class WhooshIndexerImpl(IndexerImpl):
 
     self.writer_.update_document(
         path=path.resolve().as_posix(),
+        path_content=path.resolve().as_posix(),
         create_time=datetime.datetime.fromtimestamp(path.stat().st_ctime),
         modified_time=datetime.datetime.fromtimestamp(path.stat().st_mtime),
         content=content)
@@ -72,65 +75,64 @@ class WhooshIndexerImpl(IndexerImpl):
     fields = []
 
     origin_path = path
+    use_raw_match = raw_pattern
+
+    query_str = "NOT tag:'indexed_path'"
 
     if path is not None:
-      if path.find(':') >= 0:
-        path = pathlib.Path(path).resolve().as_posix()
-        path = f'{path.replace(":", "?")}*'
-      else:
-        path = f'*{path}*'
+      fields.append('path_content')
 
-      fields.append('path')
+      if not use_raw_match:
+        path_query_str = regexp_to_query(
+            f'(?m){"(?i)" if ignore_case else ""}{path}')
+      else:
+        path_query_str = path
+
+      if len(path_query_str) == 0:
+        logging.warning(f'unable to parse path query:{path} as regex')
+        path_query_str = path
+
+      if path != '.*':
+        query_str += f' path_content:{path_query_str}'
 
     if content is not None:
       fields.append('content')
 
-    qp = MultifieldParser(fields, schema=self.index_.schema)
-
-    query_str = "NOT tag:'indexed_path'"
-
-    use_raw_match = raw_pattern
-    if content is not None:
       if not use_raw_match:
-        content_query_str = regexp_to_query(f'(?m){"(?i)" if ignore_case else ""}{content}')
+        content_query_str = regexp_to_query(
+            f'(?m){"(?i)" if ignore_case else ""}{content}')
       else:
         content_query_str = content
 
       if len(content_query_str) == 0:
-        use_raw_match = True
+        logging.warning(f'unable to parse content query:{content} as regex')
         content_query_str = content
       query_str += f' content:{content_query_str}'
 
-    if path is not None:
-      query_str += f' path:{path}'
+    qp = MultifieldParser(fields, schema=self.index_.schema)
 
     query = qp.parse(query_str)
 
     logging.debug(f'query str:{query_str}, query_parsed:{query}')
 
-    return QueryResult(self.index_.searcher(), query, origin_path,
-                       ignore_case,
+    return QueryResult(self.index_.searcher(), query, origin_path, ignore_case,
                        use_raw_match)
 
   def delete_path(self, path):
     if path is None:
       raise ValueError('must provide path to delete')
 
-    qp = MultifieldParser(['path'], schema=self.index_.schema)
+    results = self.query(path, None)
 
-    if path.find(':') >= 0:
-      path = f'{path.replace(":", "?")}*'
-    else:
-      path = f'*{path}*'
+    pattern = re.compile(path)
 
-    query_str = f'path:{path}'
+    for hit in results.query():
+      p = pathlib.Path(hit['path'])
 
-    query = qp.parse(query_str)
+      if pattern.search(p.as_posix()) is None:
+        continue
 
-    logging.debug(f'query str:{query_str}, query_parsed:{query}')
-
-    with self.index_.searcher() as sr:
-      self.writer_.delete_by_query(query, sr)
+      self.writer_.delete_by_term('path', p.as_posix())
 
   def touch_path(self, path, modified_time):
     if path is None:
@@ -165,9 +167,6 @@ class WhooshIndexerImpl(IndexerImpl):
 
   def clear_non_exist(self, path):
     v = path.as_posix()
-
-    if v.find(':') >= 0:
-      v = v.replace(':', '?')
 
     results = self.query(v, None)
 

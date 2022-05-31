@@ -2,6 +2,7 @@ import argparse
 import logging
 import pathlib
 import datetime
+import re
 from termcolor import colored
 
 from pyeverything.core.indexing import Indexer
@@ -70,8 +71,13 @@ def parse_arguments():
   query_parser.add_argument('--no_color', action='store_true', default=False)
   query_parser.add_argument('--ackmate', action='store_true', default=False)
   query_parser.add_argument('--path_only', action='store_true', default=False)
-  query_parser.add_argument('-i', '--ignore_case', action='store_true', default=False)
-  query_parser.add_argument('--raw_pattern', action='store_true', default=False)
+  query_parser.add_argument('-i',
+                            '--ignore_case',
+                            action='store_true',
+                            default=False)
+  query_parser.add_argument('--raw_pattern',
+                            action='store_true',
+                            default=False)
 
   list_parser = sub_parsers.add_parser('list', help='list indexed path')
 
@@ -151,11 +157,31 @@ def get_touch_time(args):
     return datetime.datetime.now()
 
 
+def get_path_matcher(args):
+  if args.path is None:
+    return None
+
+  path = args.path
+
+  if args.raw_pattern:
+    path = re.escape(path)
+
+  if args.ignore_case:
+    path = f'(?i){path}'
+
+  path = f'(?m){path}'
+
+  return re.compile(path)
+
+
 def do_query(indexer, args):
-  r = indexer.query(args.path, args.content, args.ignore_case, args.raw_pattern)
+  r = indexer.query(args.path, args.content, args.ignore_case,
+                    args.raw_pattern)
 
   if args.ackmate:
     args.no_color = True
+
+  path_matcher = get_path_matcher(args)
 
   for hit in r.query():
     path = hit['path']
@@ -169,6 +195,10 @@ def do_query(indexer, args):
         print(colored(path, 'green', attrs=['bold']))
 
     p_path = pathlib.Path(path)
+
+    if path_matcher is not None and path_matcher.search(path) is None:
+      logging.debug(f'pat:{path} does not match pattern:{args.path}, skipping')
+      continue
 
     if not p_path.exists():
       logging.debug(f'path:{path} does not exist, skipping')
