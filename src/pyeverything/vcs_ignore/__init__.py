@@ -1,5 +1,6 @@
 import pathlib
 import globre
+import logging
 
 
 class VCSIgnore(object):
@@ -38,7 +39,7 @@ class VCSIgnore(object):
     extra_pattern = None
     if pattern.startswith('/'):
       pattern = pattern[1:]
-    elif pattern.find('**') < 0:
+    elif not pattern.startswith('**'):
       extra_pattern = pattern
       pattern = '**/' + pattern
 
