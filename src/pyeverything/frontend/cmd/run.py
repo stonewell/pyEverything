@@ -91,6 +91,7 @@ def main():
     logging.getLogger('').setLevel(logging.DEBUG)
 
   logging.getLogger('binaryornot').setLevel(logging.WARNING)
+  logging.getLogger('chardet').setLevel(logging.WARNING)
 
   logging.debug(f'operation:{args.op}')
 

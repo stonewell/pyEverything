@@ -84,7 +84,7 @@ class WhooshIndexerImpl(IndexerImpl):
 
       if not use_raw_match:
         path_query_str = regexp_to_query(
-            f'(?m){"(?i)" if ignore_case else ""}{path}')
+            f'(?m){"(?i)" if ignore_case else ""}{path}', 1)
       else:
         path_query_str = path
 
@@ -100,7 +100,7 @@ class WhooshIndexerImpl(IndexerImpl):
 
       if not use_raw_match:
         content_query_str = regexp_to_query(
-            f'(?m){"(?i)" if ignore_case else ""}{content}')
+            f'(?m){"(?i)" if ignore_case else ""}{content}', 1)
       else:
         content_query_str = content
 

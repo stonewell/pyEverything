@@ -7,8 +7,46 @@ import sre_parse
 from sre_constants import LITERAL, NOT_LITERAL, MAX_REPEAT
 from sre_constants import IN, BRANCH, MIN_REPEAT, SUBPATTERN, MAXREPEAT
 from sre_constants import ASSERT, ASSERT_NOT, ANY, GROUPREF, AT
+from sre_constants import NEGATE, RANGE, CATEGORY, CATEGORY_DIGIT, CATEGORY_NOT_DIGIT
 
 from .utils import generate_match_info
+
+
+def __dump_in(av):
+  words = []
+  emit = words.append
+  first_flg = 1
+
+  negative = False
+
+  for x in av:
+    if x[0] == NEGATE:
+      if first_flg == 1:
+        negative = True
+      else:
+        raise AssertionError("negate not first?")
+    elif x[0] == LITERAL:
+      if first_flg and x[1] == ord("^"):
+        negative = True
+      else:
+        emit(f'\'{chr(x[1])}\'')
+    elif x[0] == RANGE:
+      emit(f'[\'{chr(x[1][0])}\' TO \'{chr(x[1][1])}\']')
+    elif x[0] == CATEGORY:
+      if x[1] == CATEGORY_DIGIT:
+        emit("['0' TO '9']")
+      elif x[1] == CATEGORY_NOT_DIGIT:
+        emit("(NOT ['0' TO '9'[)")
+      else:
+        pass
+    else:
+      raise NotImplementedError(x[0])
+    first_flg = 0
+
+  if negative:
+    return "(NOT (" + "OR".join(words) + "))"
+
+  return "(" + "OR".join(words) + ")"
 
 
 def __sre_tree_to_query(pattern, minisize=2):
@@ -60,16 +98,16 @@ def __sre_tree_to_query(pattern, minisize=2):
     if op in [LITERAL, NOT_LITERAL]:
       c = chr(av)
 
-      if c not in ['(', ')', '"']:
+      if c not in ['(', ')', '"', "'"]:
         literal += chr(av)
       else:
         literal += ' '
 
     elif op == IN:
-      pass
+      emit_with_op(__dump_in(av), 'AND')
     elif op in (MAX_REPEAT, MIN_REPEAT):
       i, j, subtree = av
-      s = __sre_tree_to_query(subtree)
+      s = __sre_tree_to_query(subtree, minisize)
 
       if j == MAXREPEAT:
         if i == 0:
@@ -94,7 +132,7 @@ def __sre_tree_to_query(pattern, minisize=2):
           emit_with_op(ss if is_raw_literal(s) else s, 'AND')
     elif op == SUBPATTERN:
       _, _, _, subtree = av
-      s = __sre_tree_to_query(subtree)
+      s = __sre_tree_to_query(subtree, minisize)
 
       emit_with_op(s, 'AND')
     elif op == ASSERT:
@@ -184,7 +222,9 @@ def regexp_to_query(regex_str, minisize=2):
 def regexp_match_info(hit, pattern, ignore_case):
   text = pathlib.Path(hit['path']).read_text(encoding='utf-8', errors='ignore')
 
-  logging.debug(f'matching file:{hit["path"]} using:{pattern}, ignore_case:{ignore_case}')
+  logging.debug(
+      f'matching file:{hit["path"]} using:{pattern}, ignore_case:{ignore_case}'
+  )
 
   token_iter = re.finditer(f'(?m){"(?i)" if ignore_case else ""}{pattern}',
                            text)
