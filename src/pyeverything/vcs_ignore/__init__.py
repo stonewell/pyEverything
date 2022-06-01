@@ -38,7 +38,7 @@ class VCSIgnore(object):
     extra_pattern = None
     if pattern.startswith('/'):
       pattern = pattern[1:]
-    elif pattern.find('/') >= 0:
+    elif pattern.find('**') < 0:
       extra_pattern = pattern
       pattern = '**/' + pattern
 
