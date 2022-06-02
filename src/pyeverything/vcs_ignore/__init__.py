@@ -44,6 +44,10 @@ class VCSIgnore(object):
       pattern = '**/' + pattern
 
     if pattern.endswith('/'):
+      if white_list:
+        # if white list all under, we should white list itself
+        self.patterns_.append((pattern[:-1], True))
+
       pattern = pattern + '**'
       if extra_pattern:
         extra_pattern += '**'

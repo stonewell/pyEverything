@@ -36,7 +36,7 @@ def __dump_in(av):
       if x[1] == CATEGORY_DIGIT:
         emit("['0' TO '9']")
       elif x[1] == CATEGORY_NOT_DIGIT:
-        emit("(NOT ['0' TO '9'[)")
+        emit("(NOT ['0' TO '9'])")
       else:
         pass
     else:
