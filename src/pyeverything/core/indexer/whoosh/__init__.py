@@ -46,7 +46,11 @@ class WhooshIndexerImpl(IndexerImpl):
 
     content = ''
     if not is_binary(path.resolve().as_posix()):
-      content = path.read_text(encoding='utf-8', errors='ignore')
+      try:
+        content = path.read_text(encoding='utf-8', errors='ignore')
+      except:
+        logging.exception(f'failed read content:{path.resolve().as_posix()}')
+        return
 
     self.writer_.update_document(
         path=path.resolve().as_posix(),
