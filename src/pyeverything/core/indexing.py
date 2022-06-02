@@ -160,12 +160,12 @@ class Indexer(object):
         path = path.resolve()
 
         modified_time = None
+        exist_files = {}
 
         if update:
           indexer.indexer_impl_.begin_index()
-          indexer.indexer_impl_.clear_non_exist(path)
+          exist_files = indexer.indexer_impl_.clear_non_exist(path)
           modified_time = indexer.indexer_impl_.get_index_modified_time(path)
-          indexer.indexer_impl_.end_index()
 
         if path.is_dir() and path.exists():
           entries = walk_directory(path)
@@ -178,7 +178,8 @@ class Indexer(object):
 
         logging.debug(f'begin index for: {path.as_posix()}')
 
-        indexer.indexer_impl_.begin_index()
+        if not update:
+          indexer.indexer_impl_.begin_index()
 
         for entry in entries:
           if indexer.shutdown_.value == 1:
@@ -187,10 +188,21 @@ class Indexer(object):
 
           e_mtime = datetime.datetime.fromtimestamp(entry.stat().st_mtime)
           if modified_time is not None and e_mtime <= modified_time:
-            logging.debug(
-                f'skip {entry.as_posix()} since not modified, {e_mtime} < {modified_time}'
-            )
-            continue
+            skip_file = True
+
+            try:
+              s_mtime = exist_files[entry.as_posix()]
+
+              if s_mtime < e_mtime:
+                skip_file = False
+            except (KeyError):
+              skip_file = False
+
+            if skip_file:
+              logging.debug(
+                  f'skip {entry.as_posix()} since not modified, {e_mtime} < {modified_time}'
+              )
+              continue
 
           logging.debug(f'indexing document:{entry.as_posix()}')
           indexer.indexer_impl_.add_document(entry, full_indexing)

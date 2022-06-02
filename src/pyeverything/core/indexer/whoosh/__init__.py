@@ -171,14 +171,19 @@ class WhooshIndexerImpl(IndexerImpl):
 
     results = self.query(v, None)
 
+    exist_files = {}
     for hit in results.query():
       p = pathlib.Path(hit['path'])
 
-      if not p.as_posix().startswith(path.as_posix()):
+      if not p.as_posix().startswith(v):
         continue
 
       if not p.exists():
         self.writer_.delete_by_term('path', p.as_posix())
+      else:
+        exist_files[p.as_posix()] = hit['modified_time']
+
+    return exist_files
 
   def get_index_modified_time(self, path):
     try:
