@@ -44,9 +44,9 @@ def __dump_in(av):
     first_flg = 0
 
   if negative:
-    return "(NOT (" + "OR".join(words) + "))"
+    return "(NOT (" + " OR ".join(words) + "))"
 
-  return "(" + "OR".join(words) + ")"
+  return "(" + " OR ".join(words) + ")"
 
 
 def __sre_tree_to_query(pattern, minisize=2):
