@@ -1,3 +1,4 @@
+import sys
 import argparse
 import logging
 import pathlib
@@ -8,7 +9,7 @@ from termcolor import colored
 from pyeverything.core.indexing import Indexer
 
 
-def parse_arguments():
+def parse_arguments(cmd_line_args):
   parser = argparse.ArgumentParser()
 
   parser.add_argument("-d",
@@ -78,23 +79,28 @@ def parse_arguments():
   query_parser.add_argument('--raw_pattern',
                             action='store_true',
                             default=False)
-  query_parser.add_argument('--limit',
-                            type=int,
-                            default=None)
-  query_parser.add_argument('--page',
-                            type=int,
-                            default=None)
-  query_parser.add_argument('--page_size',
-                            type=int,
-                            default=20)
+  query_parser.add_argument('--limit', type=int, default=None)
+  query_parser.add_argument('--page', type=int, default=None)
+  query_parser.add_argument('--page_size', type=int, default=20)
 
   list_parser = sub_parsers.add_parser('list', help='list indexed path')
 
-  return parser.parse_args()
+  return parser.parse_args(cmd_line_args)
 
 
 def main():
-  args = parse_arguments()
+  run_with_args(sys.argv[1:], False)
+
+
+__g_Indexeres = {}
+__g_DefaultIndexer = None
+
+
+def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
+  global __g_DefaultIndexer
+  global __g_Indexeres
+
+  args = parse_arguments(cmd_line_args)
 
   if args.debug > 0:
     logging.getLogger('').setLevel(logging.DEBUG)
@@ -107,18 +113,31 @@ def main():
   if args.location is not None:
     logging.debug(f'index store location:{args.location.resolve().as_posix()}')
 
-  indexer = Indexer(args.location, False)
+  if not cache:
+    indexer = Indexer(args.location, False)
+  elif args.location is None:
+    if __g_DefaultIndexer is None:
+      __g_DefaultIndexer = Indexer(args.location, False)
+
+    indexer = __g_DefaultIndexer
+  else:
+    if args.location not in __g_Indexeres:
+      __g_Indexeres[args.location] = Indexer(args.location, False)
+
+    indexer = __g_Indexeres[args.location]
 
   if args.op == 'index':
-    do_index(indexer, args)
+    do_index(indexer, args, output)
   elif args.op == 'query':
-    do_query(indexer, args)
+    do_query(indexer, args, output)
   elif args.op == 'list':
     for p, m in indexer.list_indexed_path():
-      print(f'path:{p}, modified time:{m}')
+      print(f'path:{p}, modified time:{m}', file=output)
+  else:
+    parse_arguments(['-h'])
 
 
-def do_index(indexer, args):
+def do_index(indexer, args, output=sys.stdout):
   touch_time = get_touch_time(args)
 
   logging.debug(
@@ -184,7 +203,7 @@ def get_path_matcher(args):
   return re.compile(path)
 
 
-def do_query(indexer, args):
+def do_query(indexer, args, output=sys.stdout):
   r = indexer.query(args.path, args.content, args.ignore_case,
                     args.raw_pattern)
 
@@ -203,11 +222,11 @@ def do_query(indexer, args):
 
     def output_path():
       if args.ackmate:
-        print(f':{path}')
+        print(f':{path}', file=output)
       elif args.no_color:
-        print(path)
+        print(path, file=output)
       else:
-        print(colored(path, 'green', attrs=['bold']))
+        print(colored(path, 'green', attrs=['bold']), file=output)
 
     p_path = pathlib.Path(path)
 
@@ -237,7 +256,7 @@ def do_query(indexer, args):
         if args.ackmate:
           if line_num != l + 1:
             if matching_info_text is not None:
-              print(f'{matching_info_text}:{line_text}')
+              print(f'{matching_info_text}:{line_text}', file=output)
 
             matching_info_text = f'{l + 1};{start} {length}'
             line_text = text
@@ -245,7 +264,7 @@ def do_query(indexer, args):
           else:
             matching_info_text += f',{start} {length}'
         elif args.no_color:
-          print(f'{l+1}: {text}')
+          print(f'{l+1}: {text}', file=output)
         else:
           line_num = colored(l + 1, "yellow", attrs=["bold"])
           line_text = [
@@ -253,13 +272,13 @@ def do_query(indexer, args):
               colored(text[start:start + length], "grey",
                       on_color="on_yellow"), text[start + length:]
           ]
-          print(f'{line_num}: {"".join(line_text)}')
+          print(f'{line_num}: {"".join(line_text)}', file=output)
 
       if matching_info_text is not None:
-        print(f'{matching_info_text}:{line_text}')
+        print(f'{matching_info_text}:{line_text}', file=output)
 
       if path_output_done:
-        print('')
+        print('', file=output)
       else:
         logging.debug(f'path:{path} no matching, skipping')
 
