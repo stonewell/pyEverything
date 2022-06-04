@@ -78,6 +78,15 @@ def parse_arguments():
   query_parser.add_argument('--raw_pattern',
                             action='store_true',
                             default=False)
+  query_parser.add_argument('--limit',
+                            type=int,
+                            default=None)
+  query_parser.add_argument('--page',
+                            type=int,
+                            default=None)
+  query_parser.add_argument('--page_size',
+                            type=int,
+                            default=20)
 
   list_parser = sub_parsers.add_parser('list', help='list indexed path')
 
@@ -184,7 +193,12 @@ def do_query(indexer, args):
 
   path_matcher = get_path_matcher(args)
 
-  for hit in r.query():
+  if args.page is not None:
+    results = r.query_paged(args.page, args.page_size)
+  else:
+    results = r.query(args.limit)
+
+  for hit in results:
     path = hit['path']
 
     def output_path():

@@ -25,7 +25,7 @@ class QueryResult(object):
     return self.searcher_.search(self.query_, limit=limit)
 
   def query_paged(self, page, page_len=10):
-    return self.searcher_.search_page(self.query_, page, page_len=page_len)
+    return self.searcher_.search_page(self.query_, page, pagelen=page_len)
 
   def get_matching_info(self, hit, content):
     if self.use_raw_match_:
