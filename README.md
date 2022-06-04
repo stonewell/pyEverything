@@ -14,8 +14,9 @@ pip install git+https://github.com/stonewell/pyEverything
 - [X] support raw query string
 - [X] get the hit line and column
 - [X] generate textmate compatible output
-- [ ] update will remove the indexed file which ignore now
-- [X] use 3-gram index, and full support regex
+- [X] update will remove the indexed file which ignore now
+- [X] use 1 to 3 gram index, and full support regex
+- [ ] handle [a]?.* regex
 
 # Reference
 - [https://swtch.com/~rsc/regexp/regexp4.html](https://swtch.com/~rsc/regexp/regexp4.html)
