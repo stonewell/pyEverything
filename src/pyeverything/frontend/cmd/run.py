@@ -126,6 +126,8 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
 
     indexer = __g_Indexeres[args.location]
 
+  indexer.refresh_cache()
+
   if args.op == 'index':
     do_index(indexer, args, output)
   elif args.op == 'query':

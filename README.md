@@ -17,6 +17,8 @@ pip install git+https://github.com/stonewell/pyEverything
 - [X] update will remove the indexed file which ignore now
 - [X] use 1 to 3 gram index, and full support regex
 - [ ] handle [a]?.* regex
+- [X] add run_with_args function to frontend.cmd
+- [X] add refresh index function to frontend.cmd
 
 # Reference
 - [https://swtch.com/~rsc/regexp/regexp4.html](https://swtch.com/~rsc/regexp/regexp4.html)

@@ -170,6 +170,10 @@ class WhooshIndexerImpl(IndexerImpl):
       logging.exception('failed')
       return []
 
+  def refresh_cache(self):
+    if not self.index_.up_to_date():
+      self.index_ = self.index_.refresh()
+
   def clear_non_exist(self, path):
     v = path.as_posix()
 

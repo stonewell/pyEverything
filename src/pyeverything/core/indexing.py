@@ -109,6 +109,9 @@ class Indexer(object):
   def list_indexed_path(self):
     return self.indexer_impl_.list_indexed_path()
 
+  def refresh_cache(self):
+    return self.indexer_impl_.refresh_cache()
+
   def __remove_index_func(self, path):
     logging.debug(f'remove index for: {path}')
 

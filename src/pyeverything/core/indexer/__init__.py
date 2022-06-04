@@ -30,6 +30,12 @@ class IndexerImpl(object):
   def get_index_modified_time(self, path):
     raise NotImplementedError()
 
+  def refresh_cache(self):
+    raise NotImplementedError()
+
+  def list_indexed_path(self):
+    raise NotImplementedError()
+
 
 def get_indexer_impl(data_path):
   from .whoosh import WhooshIndexerImpl
