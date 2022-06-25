@@ -140,13 +140,13 @@ class Indexer(object):
   def indexing_func(indexer):
     while True:
       if indexer.shutdown_.value == 1:
-        logging.info('1.quit indexing function process')
+        logging.debug('1.quit indexing function process')
         break
 
       task = indexer.data_queue_.get()
 
       if task is None or indexer.shutdown_.value == 1:
-        logging.info('2.quit indexing function process')
+        logging.debug('2.quit indexing function process')
         break
 
       path, full_indexing, remove, touch, update = task
@@ -159,16 +159,21 @@ class Indexer(object):
         indexer.__touch_index_func(path, touch)
         continue
 
+      index_updated = False
+
       try:
         path = path.resolve()
 
         modified_time = None
         exist_files = {}
 
+        logging.info(f'indexing path:{path.as_posix()}, update:{update}')
+
         if update:
           indexer.indexer_impl_.begin_index()
-          exist_files = indexer.indexer_impl_.clear_non_exist(path)
+          exist_files, delete_file_count = indexer.indexer_impl_.clear_non_exist(path)
           modified_time = indexer.indexer_impl_.get_index_modified_time(path)
+          index_updated = index_updated or (delete_file_count > 0)
 
         if path.is_dir() and path.exists():
           entries = walk_directory(path)
@@ -186,7 +191,7 @@ class Indexer(object):
 
         for entry in entries:
           if indexer.shutdown_.value == 1:
-            logging.info('3.quit indexing function process')
+            logging.debug('3.quit indexing function process')
             break
 
           e_mtime = datetime.datetime.fromtimestamp(entry.stat().st_mtime)
@@ -209,13 +214,14 @@ class Indexer(object):
 
           logging.debug(f'indexing document:{entry.as_posix()}')
           indexer.indexer_impl_.add_document(entry, full_indexing)
+          index_updated = True
 
         indexer.indexer_impl_.touch_path(path.as_posix(),
                                          datetime.datetime.now())
       except:
         logging.exception(f'failed index {task}')
       finally:
-        indexer.indexer_impl_.end_index()
+        indexer.indexer_impl_.end_index(index_updated)
         logging.debug(
             f'done index for: {path.as_posix() if not isinstance(path, str) else path}'
         )

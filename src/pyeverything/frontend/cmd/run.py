@@ -104,6 +104,8 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
 
   if args.debug > 0:
     logging.getLogger('').setLevel(logging.DEBUG)
+  else:
+    logging.getLogger('').setLevel(logging.INFO)
 
   logging.getLogger('binaryornot').setLevel(logging.WARNING)
   logging.getLogger('chardet').setLevel(logging.WARNING)

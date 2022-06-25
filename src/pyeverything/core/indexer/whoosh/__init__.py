@@ -65,11 +65,17 @@ class WhooshIndexerImpl(IndexerImpl):
 
     self.writer_ = self.index_.writer(proc=4, limitmb=512, multisegment=True)
 
-  def end_index(self):
+  def end_index(self, index_updated=True):
     if self.writer_ is None:
       return
 
-    self.writer_.commit(optimize=True)
+    logging.info(f'index updated:{index_updated}, skip commit')
+
+    if index_updated:
+      self.writer_.commit(optimize=True)
+    else:
+      self.writer_.cancel()
+
     self.writer_ = None
 
   def query(self, path, content, ignore_case=True, raw_pattern=False):
@@ -180,6 +186,8 @@ class WhooshIndexerImpl(IndexerImpl):
     results = self.query(v, None)
 
     exist_files = {}
+    delete_file_count = 0
+
     for hit in results.query():
       p = pathlib.Path(hit['path'])
 
@@ -188,10 +196,11 @@ class WhooshIndexerImpl(IndexerImpl):
 
       if not p.exists():
         self.writer_.delete_by_term('path', p.as_posix())
+        delete_file_count += 1
       else:
         exist_files[p.as_posix()] = hit['modified_time']
 
-    return exist_files
+    return exist_files, delete_file_count
 
   def get_index_modified_time(self, path):
     try:

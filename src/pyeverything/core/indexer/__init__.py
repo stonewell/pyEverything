@@ -12,7 +12,7 @@ class IndexerImpl(object):
   def begin_index(self):
     raise NotImplementedError()
 
-  def end_index(self):
+  def end_index(self, index_updated=True):
     raise NotImplementedError()
 
   def query(self, path, content, ignore_case=True, raw_pattern=False):
