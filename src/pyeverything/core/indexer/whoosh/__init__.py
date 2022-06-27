@@ -69,7 +69,7 @@ class WhooshIndexerImpl(IndexerImpl):
     if self.writer_ is None:
       return
 
-    logging.info(f'index updated:{index_updated}, skip commit')
+    logging.info(f'index updated:{index_updated}')
 
     if index_updated:
       self.writer_.commit(optimize=True)

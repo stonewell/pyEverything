@@ -160,6 +160,8 @@ class Indexer(object):
         continue
 
       index_updated = False
+      delete_file_count = 0
+      new_added_file_count = 0
 
       try:
         path = path.resolve()
@@ -215,6 +217,7 @@ class Indexer(object):
           logging.debug(f'indexing document:{entry.as_posix()}')
           indexer.indexer_impl_.add_document(entry, full_indexing)
           index_updated = True
+          new_added_file_count += 1
 
         indexer.indexer_impl_.touch_path(path.as_posix(),
                                          datetime.datetime.now())
@@ -222,8 +225,8 @@ class Indexer(object):
         logging.exception(f'failed index {task}')
       finally:
         indexer.indexer_impl_.end_index(index_updated)
-        logging.debug(
-            f'done index for: {path.as_posix() if not isinstance(path, str) else path}'
+        logging.info(
+            f'index for: {path.as_posix() if not isinstance(path, str) else path} is done, deleted:{delete_file_count}, new files:{new_added_file_count}'
         )
 
 
