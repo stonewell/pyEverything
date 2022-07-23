@@ -1,3 +1,4 @@
+from functools import reduce
 import sys
 import argparse
 import logging
@@ -5,6 +6,7 @@ import pathlib
 import datetime
 import re
 from termcolor import colored
+import subprocess
 
 from pyeverything.core.indexing import Indexer
 
@@ -79,34 +81,39 @@ def parse_arguments(cmd_line_args):
   query_parser.add_argument('--raw_pattern',
                             action='store_true',
                             default=False)
-  query_parser.add_argument('--no_group',
-                            action='store_true',
-                            default=False)
+  query_parser.add_argument('--no_group', action='store_true', default=False)
   query_parser.add_argument('--limit', type=int, default=None)
   query_parser.add_argument('--page', type=int, default=None)
   query_parser.add_argument('--page_size', type=int, default=20)
 
   list_parser = sub_parsers.add_parser('list', help='list indexed path')
 
-  helm_ag_parser = sub_parsers.add_parser('helm-ag', help='compatible with helm-ag')
+  helm_ag_parser = sub_parsers.add_parser('helm-ag',
+                                          help='compatible with helm-ag')
   helm_ag_parser.add_argument('--ignore',
                               type=str,
+                              action='append',
                               required=False,
                               default=None)
   helm_ag_parser.add_argument('--path-to-ignore',
                               type=str,
                               required=False,
                               default=None)
-  helm_ag_parser.add_argument('pattern_and_path',
-                              type=str,
-                              nargs='+')
-
+  helm_ag_parser.add_argument('pattern_and_path', type=str, nargs='+')
 
   return parser.parse_args(cmd_line_args)
 
 
 def find_index_location(p):
+  everything_path = find_pyeverything(p)
+
+  if everything_path is not None:
+    loc = everything_path.read_text(encoding='utf-8').strip('\n').strip('\r')
+    if len(loc) > 0:
+      return loc
+
   return None
+
 
 def main():
   run_with_args(sys.argv[1:], False)
@@ -140,7 +147,7 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
 
   if args.location is not None:
     logging.debug(f'index store location:{args.location.resolve().as_posix()}')
-  else:
+  elif args.op == 'helm-ag':
     args.location = find_index_location(pathlib.Path('.').cwd())
 
   if not cache:
@@ -166,6 +173,10 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
     for p, m in indexer.list_indexed_path():
       print(f'path:{p}, modified time:{m}', file=output)
   elif args.op == 'helm-ag':
+    if not has_pyeverything_index(indexer, pathlib.Path('.').cwd()):
+      call_ag(args)
+      return
+
     args.path = pathlib.Path('.').cwd().as_posix()
     args.content = args.pattern_and_path[0]
     args.no_color = True
@@ -250,10 +261,10 @@ def get_path_matcher(args):
 
 
 def do_query(indexer, args, output=sys.stdout):
-  # do not use args.path for index query
+  # do not use args.path for index query if there is content query
   # will check path anyway later
-  r = indexer.query(None, args.content, args.ignore_case,
-                    args.raw_pattern)
+  r = indexer.query(args.path if args.content is None else None, args.content,
+                    args.ignore_case, args.raw_pattern)
 
   if args.ackmate:
     args.no_color = True
@@ -314,7 +325,7 @@ def do_query(indexer, args, output=sys.stdout):
         elif args.no_color:
           print(f'{path}:{l+1}: {text}', file=output)
         else:
-          path_text= colored(path, 'green', attrs=['bold'])
+          path_text = colored(path, 'green', attrs=['bold'])
           line_num = colored(l + 1, "yellow", attrs=["bold"])
           line_text = [
               text[:start],
@@ -330,6 +341,47 @@ def do_query(indexer, args, output=sys.stdout):
         print('', file=output)
       else:
         logging.debug(f'path:{path} no matching, skipping')
+
+
+def find_pyeverything(path: pathlib.Path) -> pathlib.Path:
+  found = list(path.glob('.pyeverything'))
+
+  if len(found) > 0:
+    return path.resolve() / '.pyeverything'
+
+  if path.parent == path:
+    return None
+
+  return find_pyeverything(path.parent)
+
+
+def has_pyeverything_index(indexer, path):
+  for p, m in indexer.list_indexed_path():
+    if path.resolve().as_posix().startswith(p):
+      return True
+
+  return False
+
+
+def merge_list(x, y):
+  x.extend(y)
+
+  return x
+
+
+def call_ag(args):
+  ag_cmds = ['ag', '--no-color', '--no-group']
+
+  if args.ignore:
+    ag_cmds.extend(
+        reduce(merge_list, map(lambda x: ['--ignore', x], args.ignore)))
+
+  if args.path_to_ignore:
+    ag_cmds.extend(['--path-to-ignore', args.path_to_ignore])
+
+  ag_cmds.extend(args.pattern_and_path)
+
+  subprocess.run(ag_cmds)
 
 
 if __name__ == '__main__':
