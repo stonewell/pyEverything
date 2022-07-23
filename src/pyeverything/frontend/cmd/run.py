@@ -10,7 +10,7 @@ from pyeverything.core.indexing import Indexer
 
 
 def parse_arguments(cmd_line_args):
-  parser = argparse.ArgumentParser()
+  parser = argparse.ArgumentParser(prog='pyeverything')
 
   parser.add_argument("-d",
                       "--debug",
@@ -79,14 +79,34 @@ def parse_arguments(cmd_line_args):
   query_parser.add_argument('--raw_pattern',
                             action='store_true',
                             default=False)
+  query_parser.add_argument('--no_group',
+                            action='store_true',
+                            default=False)
   query_parser.add_argument('--limit', type=int, default=None)
   query_parser.add_argument('--page', type=int, default=None)
   query_parser.add_argument('--page_size', type=int, default=20)
 
   list_parser = sub_parsers.add_parser('list', help='list indexed path')
 
+  helm_ag_parser = sub_parsers.add_parser('helm-ag', help='compatible with helm-ag')
+  helm_ag_parser.add_argument('--ignore',
+                              type=str,
+                              required=False,
+                              default=None)
+  helm_ag_parser.add_argument('--path-to-ignore',
+                              type=str,
+                              required=False,
+                              default=None)
+  helm_ag_parser.add_argument('pattern_and_path',
+                              type=str,
+                              nargs='+')
+
+
   return parser.parse_args(cmd_line_args)
 
+
+def find_index_location(p):
+  return None
 
 def main():
   run_with_args(sys.argv[1:], False)
@@ -112,8 +132,16 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
 
   logging.debug(f'operation:{args.op}')
 
+  if args.op == 'helm-ag':
+    if len(args.pattern_and_path) > 2:
+      logging.error(' '.join(sys.argv))
+      parse_arguments(['helm-ag', '-h'])
+      return
+
   if args.location is not None:
     logging.debug(f'index store location:{args.location.resolve().as_posix()}')
+  else:
+    args.location = find_index_location(pathlib.Path('.').cwd())
 
   if not cache:
     indexer = Indexer(args.location, False)
@@ -137,6 +165,20 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
   elif args.op == 'list':
     for p, m in indexer.list_indexed_path():
       print(f'path:{p}, modified time:{m}', file=output)
+  elif args.op == 'helm-ag':
+    args.path = pathlib.Path('.').cwd().as_posix()
+    args.content = args.pattern_and_path[0]
+    args.no_color = True
+    args.ackmate = False
+    args.path_only = False
+    args.ignore_case = False
+    args.raw_pattern = False
+    args.limit = None
+    args.page = None
+    args.page_size = 20
+    args.no_group = True
+
+    do_query(indexer, args, output)
   else:
     parse_arguments(['-h'])
 
@@ -208,7 +250,9 @@ def get_path_matcher(args):
 
 
 def do_query(indexer, args, output=sys.stdout):
-  r = indexer.query(args.path, args.content, args.ignore_case,
+  # do not use args.path for index query
+  # will check path anyway later
+  r = indexer.query(None, args.content, args.ignore_case,
                     args.raw_pattern)
 
   if args.ackmate:
@@ -251,7 +295,7 @@ def do_query(indexer, args, output=sys.stdout):
 
       path_output_done = False
       for m in r.get_matching_info(hit, args.content):
-        if not path_output_done:
+        if not path_output_done and (not args.no_group or args.ackmate):
           output_path()
           path_output_done = True
 
@@ -268,20 +312,21 @@ def do_query(indexer, args, output=sys.stdout):
           else:
             matching_info_text += f',{start} {length}'
         elif args.no_color:
-          print(f'{l+1}: {text}', file=output)
+          print(f'{path}:{l+1}: {text}', file=output)
         else:
+          path_text= colored(path, 'green', attrs=['bold'])
           line_num = colored(l + 1, "yellow", attrs=["bold"])
           line_text = [
               text[:start],
               colored(text[start:start + length], "grey",
                       on_color="on_yellow"), text[start + length:]
           ]
-          print(f'{line_num}: {"".join(line_text)}', file=output)
+          print(f'{path_text}:{line_num}: {"".join(line_text)}', file=output)
 
       if matching_info_text is not None:
         print(f'{matching_info_text}:{line_text}', file=output)
 
-      if path_output_done:
+      if path_output_done and (not args.no_group or args.ackmate):
         print('', file=output)
       else:
         logging.debug(f'path:{path} no matching, skipping')
