@@ -182,7 +182,7 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
       call_ag(args)
       return
 
-    args.path = pathlib.Path('.').cwd().as_posix()
+    args.path = pathlib.Path('.').cwd().resolve().as_posix()
     args.content = args.pattern_and_path[0]
     args.no_color = True
     args.ackmate = False
