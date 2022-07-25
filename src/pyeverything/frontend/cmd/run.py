@@ -13,6 +13,7 @@ from pyeverything.core.indexing import Indexer
 
 def parse_arguments(cmd_line_args):
   parser = argparse.ArgumentParser(prog='pyeverything')
+  parser.add_argument('--version', action='version', version='%(prog)s 1.0')
 
   parser.add_argument("-d",
                       "--debug",
@@ -101,6 +102,10 @@ def parse_arguments(cmd_line_args):
                               default=None)
   helm_ag_parser.add_argument('pattern_and_path', type=str, nargs='+')
 
+  helm_files_parser = sub_parsers.add_parser('helm-files',
+                                             help='helm find files')
+  helm_files_parser.add_argument('pattern_and_path', type=str, nargs='+')
+
   return parser.parse_args(cmd_line_args)
 
 
@@ -139,15 +144,15 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
 
   logging.debug(f'operation:{args.op}')
 
-  if args.op == 'helm-ag':
+  if args.op == 'helm-ag' or args.op == 'helm-files':
     if len(args.pattern_and_path) > 2:
       logging.error(' '.join(sys.argv))
-      parse_arguments(['helm-ag', '-h'])
+      parse_arguments([args.op, '-h'])
       return
 
   if args.location is not None:
     logging.debug(f'index store location:{args.location.resolve().as_posix()}')
-  elif args.op == 'helm-ag':
+  elif args.op == 'helm-ag' or args.op == 'helm-files':
     args.location = find_index_location(pathlib.Path('.').cwd())
 
   if not cache:
@@ -179,6 +184,25 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
 
     args.path = pathlib.Path('.').cwd().as_posix()
     args.content = args.pattern_and_path[0]
+    args.no_color = True
+    args.ackmate = False
+    args.path_only = False
+    args.ignore_case = False
+    args.raw_pattern = False
+    args.limit = None
+    args.page = None
+    args.page_size = 20
+    args.no_group = True
+
+    do_query(indexer, args, output)
+  elif args.op == 'helm-files':
+    if not has_pyeverything_index(indexer, pathlib.Path('.').cwd()):
+      call_ag(args)
+      sys.exit(1)
+      return
+
+    args.path = args.pattern_and_path[0]
+    args.content = None
     args.no_color = True
     args.ackmate = False
     args.path_only = False
@@ -372,14 +396,22 @@ def merge_list(x, y):
 def call_ag(args):
   ag_cmds = ['ag', '--no-color', '--no-group']
 
-  if args.ignore:
-    ag_cmds.extend(
-        reduce(merge_list, map(lambda x: ['--ignore', x], args.ignore)))
+  if args.op == 'helm-ag':
+    if args.ignore:
+      ag_cmds.extend(
+          reduce(merge_list, map(lambda x: ['--ignore', x], args.ignore)))
 
-  if args.path_to_ignore:
-    ag_cmds.extend(['--path-to-ignore', args.path_to_ignore])
+    if args.path_to_ignore:
+      ag_cmds.extend(['--path-to-ignore', args.path_to_ignore])
+  elif args.op == 'helm-files':
+    ag_cmds.append('-g')
+  else:
+    return
 
   ag_cmds.extend(args.pattern_and_path)
+
+  if args.op == 'helm-files':
+    ag_cmds.extend(['.'])
 
   subprocess.run(ag_cmds)
 
