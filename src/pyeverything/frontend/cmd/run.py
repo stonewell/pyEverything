@@ -1,12 +1,17 @@
-from functools import reduce
+import os
 import sys
+
 import argparse
 import logging
 import pathlib
 import datetime
 import re
-from termcolor import colored
 import subprocess
+
+from functools import reduce
+from multiprocessing import Process, JoinableQueue
+import multiprocessing as mp
+from termcolor import colored
 
 from pyeverything.core.indexing import Indexer
 
@@ -197,8 +202,7 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
     do_query(indexer, args, output)
   elif args.op == 'helm-files':
     if not has_pyeverything_index(indexer, pathlib.Path('.').cwd()):
-      call_ag(args)
-      sys.exit(1)
+      walk_directory(pathlib.Path('.').cwd(), args.pattern_and_path[0])
       return
 
     args.path = args.pattern_and_path[0]
@@ -416,5 +420,53 @@ def call_ag(args):
   subprocess.run(ag_cmds)
 
 
+def __process_directory(q, pattern):
+  matcher = re.compile(f'(?m){pattern}')
+
+  while True:
+    p = q.get()
+
+    if p == 'STOP':
+      q.task_done()
+      q.put('STOP')
+      break
+
+    try:
+      for child in p.iterdir():
+        if child.is_file() and matcher.search(
+            child.resolve().as_posix()) is not None:
+          print(child.resolve().as_posix())
+        elif child.is_dir():
+          q.put(child)
+    finally:
+      q.task_done()
+
+
+def walk_directory(root_path, pattern):
+  process_count = int(os.cpu_count() / 2 or 1)
+
+  proc = [None] * process_count
+  q = JoinableQueue()
+  q.put(pathlib.Path(root_path))
+
+  for i in range(process_count):
+    proc[i] = Process(target=__process_directory, args=(
+        q,
+        pattern,
+    ))
+    proc[i].start()
+
+  q.join()
+
+  q.put('STOP')
+
+  for p in proc:
+    p.join()
+
+
 if __name__ == '__main__':
+  try:
+    mp.set_start_method('fork')
+  except:
+    pass
   main()
