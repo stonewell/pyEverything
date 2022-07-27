@@ -1,8 +1,6 @@
 import pathlib
 import logging
 
-from whoosh.query import Regex
-
 from . import matching
 from .regexp import regexp_match_info
 

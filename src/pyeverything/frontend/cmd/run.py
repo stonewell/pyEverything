@@ -349,7 +349,10 @@ def do_query(indexer, args, output=sys.stdout):
           else:
             matching_info_text += f',{start} {length}'
         elif args.no_color:
-          print(f'{path}:{l+1}: {text}', file=output)
+          if args.no_group:
+            print(f'{path}:{l+1}: {text}', file=output)
+          else:
+            print(f'{l+1}: {text}', file=output)
         else:
           path_text = colored(path, 'green', attrs=['bold'])
           line_num = colored(l + 1, "yellow", attrs=["bold"])
@@ -358,7 +361,11 @@ def do_query(indexer, args, output=sys.stdout):
               colored(text[start:start + length], "grey",
                       on_color="on_yellow"), text[start + length:]
           ]
-          print(f'{path_text}:{line_num}: {"".join(line_text)}', file=output)
+
+          if args.no_group:
+            print(f'{path_text}:{line_num}: {"".join(line_text)}', file=output)
+          else:
+            print(f'{line_num}: {"".join(line_text)}', file=output)
 
       if matching_info_text is not None:
         print(f'{matching_info_text}:{line_text}', file=output)
@@ -447,11 +454,13 @@ def helm_files_file_proc(path_matcher, q_result, child):
   if path_matcher.search(child_path) is not None:
     q_result.put(child_path)
 
+
 def helm_ag_file_proc(path_matcher, pattern_matcher, q_result, child):
   child_path = child.resolve().as_posix()
 
   if path_matcher.search(child_path) is None:
     return
+
 
 def walk_directory(args):
   root_path = pathlib.Path('.').cwd()
@@ -530,7 +539,8 @@ def call_tool_if_no_index(indexer, args):
 if __name__ == '__main__':
   freeze_support()
   try:
-    set_start_method('forkserver')
+    set_start_method('spawn' if sys.platform == 'win32' else 'forkserver')
   except:
     pass
+
   main()
