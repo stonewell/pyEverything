@@ -2,15 +2,15 @@ import os
 import sys
 
 import argparse
+import datetime
 import logging
 import pathlib
-import datetime
+import queue
 import re
 import subprocess
 
-from functools import reduce
-from multiprocessing import Process, JoinableQueue
-import multiprocessing as mp
+from functools import reduce, partial
+from multiprocessing import Process, JoinableQueue, Queue, Value, freeze_support, set_start_method
 from termcolor import colored
 
 from pyeverything.core.indexing import Indexer
@@ -183,8 +183,7 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
     for p, m in indexer.list_indexed_path():
       print(f'path:{p}, modified time:{m}', file=output)
   elif args.op == 'helm-ag':
-    if not has_pyeverything_index(indexer, pathlib.Path('.').cwd()):
-      call_ag(args)
+    if call_tool_if_no_index(indexer, args):
       return
 
     args.path = pathlib.Path('.').cwd().resolve().as_posix()
@@ -201,8 +200,7 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
 
     do_query(indexer, args, output)
   elif args.op == 'helm-files':
-    if not has_pyeverything_index(indexer, pathlib.Path('.').cwd()):
-      walk_directory(pathlib.Path('.').cwd(), args.pattern_and_path[0])
+    if call_tool_if_no_index(indexer, args):
       return
 
     args.path = args.pattern_and_path[0]
@@ -398,7 +396,7 @@ def merge_list(x, y):
 
 
 def call_ag(args):
-  ag_cmds = ['ag', '--no-color', '--no-group']
+  ag_cmds = ['ag', '--no-color', '--no-group', '--vimgrep']
 
   if args.op == 'helm-ag':
     if args.ignore:
@@ -420,53 +418,119 @@ def call_ag(args):
   subprocess.run(ag_cmds)
 
 
-def __process_directory(q, pattern):
-  matcher = re.compile(f'(?m){pattern}')
+def __process_directory(file_proc, q, q_result, do_quit):
+  while do_quit.value == 0:
+    p = None
+    try:
+      p = q.get(True, 1)
+    except queue.Empty:
+      pass
 
-  while True:
-    p = q.get()
+    if p is None and do_quit.value == 1:
+      return
 
-    if p == 'STOP':
-      q.task_done()
-      q.put('STOP')
-      break
+    if p is None:
+      continue
 
     try:
       for child in p.iterdir():
-        if child.is_file() and matcher.search(
-            child.resolve().as_posix()) is not None:
-          print(child.resolve().as_posix())
+        if child.is_file():
+          file_proc(child)
         elif child.is_dir():
           q.put(child)
     finally:
       q.task_done()
 
 
-def walk_directory(root_path, pattern):
+def helm_files_file_proc(path_matcher, q_result, child):
+  child_path = child.resolve().as_posix()
+  if path_matcher.search(child_path) is not None:
+    q_result.put(child_path)
+
+def helm_ag_file_proc(path_matcher, pattern_matcher, q_result, child):
+  child_path = child.resolve().as_posix()
+
+  if path_matcher.search(child_path) is None:
+    return
+
+def walk_directory(args):
+  root_path = pathlib.Path('.').cwd()
+
+  pattern_matcher = re.compile(f'(?m){args.pattern_and_path[0]}')
+  if args.op == 'helm-files':
+    path_matcher = pattern_matcher
+  elif args.op == 'helm-ag':
+    path_matcher = re.compile(f'(?m){root_path.resolve().as_posix()}')
+  else:
+    raise ValueError(f'unsupported op:{args.op}')
+
   process_count = int(os.cpu_count() / 2 or 1)
 
   proc = [None] * process_count
   q = JoinableQueue()
-  q.put(pathlib.Path(root_path))
+  q.put(root_path)
+
+  q_result = Queue()
+
+  do_quit = Value('i')
+
+  do_quit.value = 0
 
   for i in range(process_count):
-    proc[i] = Process(target=__process_directory, args=(
-        q,
-        pattern,
-    ))
+    proc[i] = Process(target=__process_directory,
+                      args=(
+                          partial(helm_files_file_proc, path_matcher,
+                                  q_result),
+                          q,
+                          q_result,
+                          do_quit,
+                      ))
     proc[i].start()
 
   q.join()
 
-  q.put('STOP')
+  do_quit.value = 1
+
+  while not q_result.empty():
+    print(q_result.get())
 
   for p in proc:
     p.join()
 
 
-if __name__ == '__main__':
+def _run_cmd(cmd_args, dir=None):
+  proc = subprocess.run(cmd_args, capture_output=True, cwd=dir)
+
+  proc.check_returncode()
+
+  return proc.stdout.decode('utf-8', errors='ignore')
+
+
+def is_ag_working():
+  cmd_args = ['ag', '--version']
+
   try:
-    mp.set_start_method('fork')
+    return len(_run_cmd(cmd_args)) > 0
+  except:
+    return False
+
+
+def call_tool_if_no_index(indexer, args):
+  if has_pyeverything_index(indexer, pathlib.Path('.').cwd()):
+    return False
+
+  if is_ag_working():
+    call_ag(args)
+  else:
+    walk_directory(args)
+
+  return True
+
+
+if __name__ == '__main__':
+  freeze_support()
+  try:
+    set_start_method('forkserver')
   except:
     pass
   main()
