@@ -9,11 +9,14 @@ import queue
 import re
 import subprocess
 
+from binaryornot.check import is_binary
 from functools import reduce, partial
+from io import StringIO
 from multiprocessing import Process, JoinableQueue, Queue, Value, freeze_support, set_start_method
 from termcolor import colored
 
 from pyeverything.core.indexing import Indexer
+from pyeverything.core.regexp_match_utils import regexp_match_info
 
 
 def parse_arguments(cmd_line_args):
@@ -315,8 +318,12 @@ def do_query(indexer, args, output=sys.stdout):
       logging.debug(f'path:{path} does not exist, skipping')
       continue
 
-    __output_match_info(path, r.get_matching_info(hit, args.content), args,
-                        output)
+    if args.path_only or args.content is None:
+      matching_info = None
+    else:
+      matching_info = r.get_matching_info(hit, args.content)
+
+    __output_match_info(path, matching_info, args, output)
 
 
 def __output_match_info(path, match_info_iter, args, output=sys.stdout):
@@ -410,7 +417,7 @@ def merge_list(x, y):
 
 
 def call_ag(args):
-  ag_cmds = ['ag', '--no-color', '--no-group', '--vimgrep']
+  ag_cmds = ['ag', '--no-color', '--no-group', '--vimgrep', '--hidden']
 
   if args.op == 'helm-ag':
     if args.ignore:
@@ -462,21 +469,37 @@ def helm_files_file_proc(path_matcher, q_result, child):
     q_result.put(child_path)
 
 
-def helm_ag_file_proc(path_matcher, pattern_matcher, q_result, child):
+def helm_ag_file_proc(args, path_matcher, pattern_matcher, q_result, child):
   child_path = child.resolve().as_posix()
 
   if path_matcher.search(child_path) is None:
     return
 
+  if is_binary(child_path):
+    return
+
+  match_info_iter = regexp_match_info(child_path, pattern_matcher)
+
+  output = StringIO()
+
+  __output_match_info(child_path, match_info_iter, args, output)
+
+  q_result.put(output.getvalue())
+
 
 def walk_directory(args):
   root_path = pathlib.Path('.').cwd()
+  q_result = Queue()
 
   pattern_matcher = re.compile(f'(?m){args.pattern_and_path[0]}')
   if args.op == 'helm-files':
     path_matcher = pattern_matcher
+    process_func = partial(helm_files_file_proc, path_matcher, q_result)
+
   elif args.op == 'helm-ag':
     path_matcher = re.compile(f'(?m){root_path.resolve().as_posix()}')
+    process_func = partial(helm_ag_file_proc, args, path_matcher,
+                           pattern_matcher, q_result)
   else:
     raise ValueError(f'unsupported op:{args.op}')
 
@@ -486,8 +509,6 @@ def walk_directory(args):
   q = JoinableQueue()
   q.put(root_path)
 
-  q_result = Queue()
-
   do_quit = Value('i')
 
   do_quit.value = 0
@@ -495,8 +516,7 @@ def walk_directory(args):
   for i in range(process_count):
     proc[i] = Process(target=__process_directory,
                       args=(
-                          partial(helm_files_file_proc, path_matcher,
-                                  q_result),
+                          process_func,
                           q,
                           q_result,
                           do_quit,
