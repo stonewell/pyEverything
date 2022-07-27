@@ -19,6 +19,8 @@ pip install git+https://github.com/stonewell/pyEverything
 - [ ] handle [a]?.* regex
 - [X] add run_with_args function to frontend.cmd
 - [X] add refresh index function to frontend.cmd
+- [ ] helm-ag respect ignore arguments
+
 
 # Reference
 - [https://swtch.com/~rsc/regexp/regexp4.html](https://swtch.com/~rsc/regexp/regexp4.html)
