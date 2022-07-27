@@ -1,4 +1,21 @@
+import logging
+import pathlib
+import re
+
 from io import StringIO
+
+
+def regexp_match_info(path, pattern, ignore_case):
+  text = pathlib.Path(path).read_text(encoding='utf-8', errors='ignore')
+
+  logging.debug(
+      f'matching file:{path} using:{pattern}, ignore_case:{ignore_case}')
+
+  token_iter = re.finditer(f'(?m){"(?i)" if ignore_case else ""}{pattern}',
+                           text)
+
+  return generate_match_info(text, token_iter, lambda t: t.start(),
+                             lambda t: t.end())
 
 
 def generate_match_info(text, token_iter, start_char, end_char):

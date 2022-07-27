@@ -2,7 +2,7 @@ import pathlib
 import logging
 
 from . import matching
-from .regexp import regexp_match_info
+from pyeverything.core.regexp_match_utils import regexp_match_info
 
 
 class QueryResult(object):
@@ -29,4 +29,4 @@ class QueryResult(object):
     if self.use_raw_match_:
       return matching.get_matching_info(hit)
     else:
-      return regexp_match_info(hit, content, self.ignore_case_)
+      return regexp_match_info(hit['path'], content, self.ignore_case_)

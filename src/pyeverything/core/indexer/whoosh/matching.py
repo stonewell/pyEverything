@@ -1,5 +1,5 @@
 import pathlib
-from .utils import generate_match_info
+from pyeverything.core.regexp_match_utils import generate_match_info
 
 
 def __set_matched_filter(tokens, termset):

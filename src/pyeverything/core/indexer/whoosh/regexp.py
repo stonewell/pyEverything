@@ -9,8 +9,6 @@ from sre_constants import IN, BRANCH, MIN_REPEAT, SUBPATTERN, MAXREPEAT
 from sre_constants import ASSERT, ASSERT_NOT, ANY, GROUPREF, AT
 from sre_constants import NEGATE, RANGE, CATEGORY, CATEGORY_DIGIT, CATEGORY_NOT_DIGIT
 
-from .utils import generate_match_info
-
 
 def __dump_in(av):
   words = []
@@ -219,15 +217,3 @@ def regexp_to_query(regex_str, minisize=2):
       __sre_tree_to_query(sre_parse.parse(regex_str), minisize))
 
 
-def regexp_match_info(hit, pattern, ignore_case):
-  text = pathlib.Path(hit['path']).read_text(encoding='utf-8', errors='ignore')
-
-  logging.debug(
-      f'matching file:{hit["path"]} using:{pattern}, ignore_case:{ignore_case}'
-  )
-
-  token_iter = re.finditer(f'(?m){"(?i)" if ignore_case else ""}{pattern}',
-                           text)
-
-  return generate_match_info(text, token_iter, lambda t: t.start(),
-                             lambda t: t.end())
