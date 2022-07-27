@@ -183,9 +183,6 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
     for p, m in indexer.list_indexed_path():
       print(f'path:{p}, modified time:{m}', file=output)
   elif args.op == 'helm-ag':
-    if call_tool_if_no_index(indexer, args):
-      return
-
     args.path = pathlib.Path('.').cwd().resolve().as_posix()
     args.content = args.pattern_and_path[0]
     args.no_color = True
@@ -198,11 +195,11 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
     args.page_size = 20
     args.no_group = True
 
-    do_query(indexer, args, output)
-  elif args.op == 'helm-files':
     if call_tool_if_no_index(indexer, args):
       return
 
+    do_query(indexer, args, output)
+  elif args.op == 'helm-files':
     args.path = args.pattern_and_path[0]
     args.content = None
     args.no_color = True
@@ -214,6 +211,9 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
     args.page = None
     args.page_size = 20
     args.no_group = True
+
+    if call_tool_if_no_index(indexer, args):
+      return
 
     do_query(indexer, args, output)
   else:
@@ -305,14 +305,6 @@ def do_query(indexer, args, output=sys.stdout):
   for hit in results:
     path = hit['path']
 
-    def output_path():
-      if args.ackmate:
-        print(f':{path}', file=output)
-      elif args.no_color:
-        print(path, file=output)
-      else:
-        print(colored(path, 'green', attrs=['bold']), file=output)
-
     p_path = pathlib.Path(path)
 
     if path_matcher is not None and path_matcher.search(path) is None:
@@ -323,57 +315,72 @@ def do_query(indexer, args, output=sys.stdout):
       logging.debug(f'path:{path} does not exist, skipping')
       continue
 
-    if args.path_only or args.content is None:
-      output_path()
+    __output_match_info(path, r.get_matching_info(hit, args.content), args,
+                        output)
+
+
+def __output_match_info(path, match_info_iter, args, output=sys.stdout):
+
+  def output_path():
+    if args.ackmate:
+      print(f':{path}', file=output)
+    elif args.no_color:
+      print(path, file=output)
     else:
-      matching_info_text = None
-      line_text = None
-      line_num = 0
+      print(colored(path, 'green', attrs=['bold']), file=output)
 
-      path_output_done = False
-      for m in r.get_matching_info(hit, args.content):
-        if not path_output_done and (not args.no_group or args.ackmate):
-          output_path()
-          path_output_done = True
+  if args.path_only or args.content is None:
+    output_path()
+    return
 
-        l, start, length, text = m
+  matching_info_text = None
+  line_text = None
+  line_num = 0
 
-        if args.ackmate:
-          if line_num != l + 1:
-            if matching_info_text is not None:
-              print(f'{matching_info_text}:{line_text}', file=output)
+  path_output_done = False
+  for m in match_info_iter:
+    if not path_output_done and (not args.no_group or args.ackmate):
+      output_path()
+      path_output_done = True
 
-            matching_info_text = f'{l + 1};{start} {length}'
-            line_text = text
-            line_num = l + 1
-          else:
-            matching_info_text += f',{start} {length}'
-        elif args.no_color:
-          if args.no_group:
-            print(f'{path}:{l+1}: {text}', file=output)
-          else:
-            print(f'{l+1}: {text}', file=output)
-        else:
-          path_text = colored(path, 'green', attrs=['bold'])
-          line_num = colored(l + 1, "yellow", attrs=["bold"])
-          line_text = [
-              text[:start],
-              colored(text[start:start + length], "grey",
-                      on_color="on_yellow"), text[start + length:]
-          ]
+    l, start, length, text = m
 
-          if args.no_group:
-            print(f'{path_text}:{line_num}: {"".join(line_text)}', file=output)
-          else:
-            print(f'{line_num}: {"".join(line_text)}', file=output)
+    if args.ackmate:
+      if line_num != l + 1:
+        if matching_info_text is not None:
+          print(f'{matching_info_text}:{line_text}', file=output)
 
-      if matching_info_text is not None:
-        print(f'{matching_info_text}:{line_text}', file=output)
-
-      if path_output_done and (not args.no_group or args.ackmate):
-        print('', file=output)
+        matching_info_text = f'{l + 1};{start} {length}'
+        line_text = text
+        line_num = l + 1
       else:
-        logging.debug(f'path:{path} no matching, skipping')
+        matching_info_text += f',{start} {length}'
+    elif args.no_color:
+      if args.no_group:
+        print(f'{path}:{l+1}: {text}', file=output)
+      else:
+        print(f'{l+1}: {text}', file=output)
+    else:
+      path_text = colored(path, 'green', attrs=['bold'])
+      line_num = colored(l + 1, "yellow", attrs=["bold"])
+      line_text = [
+          text[:start],
+          colored(text[start:start + length], "grey", on_color="on_yellow"),
+          text[start + length:]
+      ]
+
+      if args.no_group:
+        print(f'{path_text}:{line_num}: {"".join(line_text)}', file=output)
+      else:
+        print(f'{line_num}: {"".join(line_text)}', file=output)
+
+  if matching_info_text is not None:
+    print(f'{matching_info_text}:{line_text}', file=output)
+
+  if path_output_done and (not args.no_group or args.ackmate):
+    print('', file=output)
+  else:
+    logging.debug(f'path:{path} no matching, skipping')
 
 
 def find_pyeverything(path: pathlib.Path) -> pathlib.Path:
