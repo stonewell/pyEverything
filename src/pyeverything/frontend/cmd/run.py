@@ -136,7 +136,18 @@ __g_Indexeres = {}
 __g_DefaultIndexer = None
 
 
-def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
+def run_with_args(cmd_line_args,
+                  cache=True,
+                  output=sys.stdout,
+                  output_func=None):
+  if output_func is None:
+    output_func = lambda p: print(p, file=output)
+
+  for p in run_with_args_iter(cmd_line_args, cache):
+    output_func(p)
+
+
+def run_with_args_iter(cmd_line_args, cache=True):
   global __g_DefaultIndexer
   global __g_Indexeres
 
@@ -179,12 +190,12 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
   indexer.refresh_cache()
 
   if args.op == 'index':
-    do_index(indexer, args, output)
+    yield from do_index(indexer, args)
   elif args.op == 'query':
-    do_query(indexer, args, output)
+    yield from do_query(indexer, args)
   elif args.op == 'list':
     for p, m in indexer.list_indexed_path():
-      print(f'path:{p}, modified time:{m}', file=output)
+      yield f'path:{p}, modified time:{m}'
   elif args.op == 'helm-ag':
     args.path = pathlib.Path('.').cwd().resolve().as_posix()
     args.content = args.pattern_and_path[0]
@@ -201,7 +212,7 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
     if call_tool_if_no_index(indexer, args):
       return
 
-    do_query(indexer, args, output)
+    yield from do_query(indexer, args)
   elif args.op == 'helm-files':
     args.path = args.pattern_and_path[0]
     args.content = None
@@ -218,12 +229,12 @@ def run_with_args(cmd_line_args, cache=True, output=sys.stdout):
     if call_tool_if_no_index(indexer, args):
       return
 
-    do_query(indexer, args, output)
+    yield from do_query(indexer, args)
   else:
     parse_arguments(['-h'])
 
 
-def do_index(indexer, args, output=sys.stdout):
+def do_index(indexer, args):
   touch_time = get_touch_time(args)
 
   logging.debug(
@@ -289,7 +300,7 @@ def get_path_matcher(args):
   return re.compile(path)
 
 
-def do_query(indexer, args, output=sys.stdout):
+def do_query(indexer, args):
   # do not use args.path for index query if there is content query
   # will check path anyway later
   r = indexer.query(args.path if args.content is None else None, args.content,
@@ -323,21 +334,21 @@ def do_query(indexer, args, output=sys.stdout):
     else:
       matching_info = r.get_matching_info(hit, args.content)
 
-    __output_match_info(path, matching_info, args, output)
+    yield from __output_match_info(path, matching_info, args)
 
 
-def __output_match_info(path, match_info_iter, args, output=sys.stdout):
+def __output_match_info(path, match_info_iter, args):
 
   def output_path():
     if args.ackmate:
-      print(f':{path}', file=output)
+      yield f':{path}'
     elif args.no_color:
-      print(path, file=output)
+      yield path
     else:
-      print(colored(path, 'green', attrs=['bold']), file=output)
+      yield colored(path, 'green', attrs=['bold'])
 
   if args.path_only or args.content is None:
-    output_path()
+    yield from output_path()
     return
 
   matching_info_text = None
@@ -347,7 +358,7 @@ def __output_match_info(path, match_info_iter, args, output=sys.stdout):
   path_output_done = False
   for m in match_info_iter:
     if not path_output_done and (not args.no_group or args.ackmate):
-      output_path()
+      yield from output_path()
       path_output_done = True
 
     l, start, length, text = m
@@ -355,7 +366,7 @@ def __output_match_info(path, match_info_iter, args, output=sys.stdout):
     if args.ackmate:
       if line_num != l + 1:
         if matching_info_text is not None:
-          print(f'{matching_info_text}:{line_text}', file=output)
+          yield f'{matching_info_text}:{line_text}'
 
         matching_info_text = f'{l + 1};{start} {length}'
         line_text = text
@@ -364,9 +375,9 @@ def __output_match_info(path, match_info_iter, args, output=sys.stdout):
         matching_info_text += f',{start} {length}'
     elif args.no_color:
       if args.no_group:
-        print(f'{path}:{l+1}: {text}', file=output)
+        yield f'{path}:{l+1}: {text}'
       else:
-        print(f'{l+1}: {text}', file=output)
+        yield f'{l+1}: {text}'
     else:
       path_text = colored(path, 'green', attrs=['bold'])
       line_num = colored(l + 1, "yellow", attrs=["bold"])
@@ -377,15 +388,15 @@ def __output_match_info(path, match_info_iter, args, output=sys.stdout):
       ]
 
       if args.no_group:
-        print(f'{path_text}:{line_num}: {"".join(line_text)}', file=output)
+        yield f'{path_text}:{line_num}: {"".join(line_text)}'
       else:
-        print(f'{line_num}: {"".join(line_text)}', file=output)
+        yield f'{line_num}: {"".join(line_text)}'
 
   if matching_info_text is not None:
-    print(f'{matching_info_text}:{line_text}', file=output)
+    yield f'{matching_info_text}:{line_text}'
 
   if path_output_done and (not args.no_group or args.ackmate):
-    print('', file=output)
+    yield ''
   else:
     logging.debug(f'path:{path} no matching, skipping')
 
