@@ -209,7 +209,8 @@ def run_with_args_iter(cmd_line_args, cache=True):
     args.page_size = 20
     args.no_group = True
 
-    if call_tool_if_no_index(indexer, args):
+    if not has_pyeverything_index(indexer, pathlib.Path('.').cwd()):
+      call_tool_if_no_index(indexer, args)
       return
 
     yield from do_query(indexer, args)
@@ -226,7 +227,8 @@ def run_with_args_iter(cmd_line_args, cache=True):
     args.page_size = 20
     args.no_group = True
 
-    if call_tool_if_no_index(indexer, args):
+    if not has_pyeverything_index(indexer, pathlib.Path('.').cwd()):
+      call_tool_if_no_index(indexer, args)
       return
 
     yield from do_query(indexer, args)
@@ -563,9 +565,6 @@ def is_ag_working():
 
 
 def call_tool_if_no_index(indexer, args):
-  if has_pyeverything_index(indexer, pathlib.Path('.').cwd()):
-    return False
-
   if is_ag_working():
     call_ag(args)
   else:
