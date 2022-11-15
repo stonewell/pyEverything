@@ -459,11 +459,11 @@ def call_rg(args):
   ]
 
   if args.op == 'helm-ag':
-    if args.ignore:
+    if args.ignore and False:
       rg_cmds.extend(
           reduce(merge_list, map(lambda x: ['--ignore', x], args.ignore)))
 
-    if args.path_to_ignore:
+    if args.path_to_ignore and False:
       rg_cmds.extend(['--path-to-ignore', args.path_to_ignore])
   else:
     return
