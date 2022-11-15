@@ -451,8 +451,12 @@ def call_ag(args):
 
   subprocess.run(ag_cmds)
 
+
 def call_rg(args):
-  rg_cmds = ['rg', '--vimgrep', '--hidden', '--smart-case', '--no-heading', '--with-filename']
+  rg_cmds = [
+      'rg', '--vimgrep', '--hidden', '--smart-case', '--no-heading',
+      '--with-filename'
+  ]
 
   if args.op == 'helm-ag':
     if args.ignore:
@@ -467,6 +471,7 @@ def call_rg(args):
   rg_cmds.extend(args.pattern_and_path)
 
   subprocess.run(rg_cmds)
+
 
 def __process_directory(file_proc, q, q_result, do_quit):
   while do_quit.value == 0:
@@ -579,6 +584,7 @@ def is_ag_working():
   except:
     return False
 
+
 def is_rg_working():
   cmd_args = ['rg', '--version']
 
@@ -586,6 +592,7 @@ def is_rg_working():
     return len(_run_cmd(cmd_args)) > 0
   except:
     return False
+
 
 def call_tool_if_no_index(indexer, args):
   if is_ag_working():
