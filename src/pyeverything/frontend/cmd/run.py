@@ -451,6 +451,22 @@ def call_ag(args):
 
   subprocess.run(ag_cmds)
 
+def call_rg(args):
+  rg_cmds = ['rg', '--vimgrep', '--hidden', '--smart-case', '--no-heading', '--with-filename']
+
+  if args.op == 'helm-ag':
+    if args.ignore:
+      rg_cmds.extend(
+          reduce(merge_list, map(lambda x: ['--ignore', x], args.ignore)))
+
+    if args.path_to_ignore:
+      rg_cmds.extend(['--path-to-ignore', args.path_to_ignore])
+  else:
+    return
+
+  rg_cmds.extend(args.pattern_and_path)
+
+  subprocess.run(rg_cmds)
 
 def __process_directory(file_proc, q, q_result, do_quit):
   while do_quit.value == 0:
@@ -563,10 +579,19 @@ def is_ag_working():
   except:
     return False
 
+def is_rg_working():
+  cmd_args = ['rg', '--version']
+
+  try:
+    return len(_run_cmd(cmd_args)) > 0
+  except:
+    return False
 
 def call_tool_if_no_index(indexer, args):
   if is_ag_working():
     call_ag(args)
+  elif is_rg_working() and args.op != 'helm-files':
+    call_rg(args)
   else:
     walk_directory(args)
 
