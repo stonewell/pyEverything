@@ -516,7 +516,8 @@ def helm_ag_file_proc(args, path_matcher, pattern_matcher, q_result, child):
 
   output = StringIO()
 
-  __output_match_info(child_path, match_info_iter, args, output)
+  for p in __output_match_info(child_path, match_info_iter, args):
+    print(p, file=output)
 
   q_result.put(output.getvalue())
 
